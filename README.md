@@ -26,10 +26,10 @@ No hay ruta navegable `/clientes`. El cliente existe como dato interno del usuar
 
 | Motor | Uso en el sistema |
 |------|-------------------|
-| Supabase/PostgreSQL | Auth, usuarios y datos relacionales minimos. |
-| MongoDB Atlas | Entidades principales desnormalizadas: establecimientos, productos, pedidos, detalles, calificaciones. |
-| Redis/Upstash | Estado vivo: repartidores disponibles, ubicacion actual, asignacion temporal de pedidos. |
-| Cassandra/DataStax Astra DB | Eventos historicos, tracking y analiticas. |
+| Supabase/PostgreSQL | Entidades del DLR: establecimientos, productos, pedidos, clientes, repartidores, calificaciones. |
+| MongoDB Atlas | Documentos flexibles: reviews, actividad de usuario. |
+| Redis/Upstash | Estado vivo: repartidores disponibles, ubicacion actual, cache de estado de pedidos. |
+| Cassandra/DataStax Astra DB | Eventos historicos de pedidos y tracking de entregas. |
 
 El DLR define el dominio conceptual. Para la implementacion NoSQL, los datos se pueden desnormalizar segun patrones de acceso.
 
@@ -198,6 +198,6 @@ erDiagram
 
 ## Documentacion interna
 
-- `AGENTS.md`: reglas obligatorias para agentes y colaboradores.
+- **`AGENTS.md`**: fuente de verdad para agentes de IA y colaboradores. Reglas obligatorias, estado del repo, patrones y checklist.
 - `docs/ARQUITECTURA.md`: estructura, rutas, motores y flujo de datos.
 - `docs/DECISIONES.md`: ADRs del proyecto.

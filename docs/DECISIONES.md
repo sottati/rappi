@@ -54,7 +54,7 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Estado:** Aceptada
 - **Contexto:** Se necesita una libreria de componentes base y una de iconos.
 - **Decision:** Usar shadcn/ui (componentes copiados al proyecto, personalizables) con Hugeicons como icon library configurada via `components.json`.
-- **Consecuencias:** +Total control sobre los componentes (no es una dependencia oculta), +tema consistente via CSS variables, -hay que mantener los componentes actualizados manualmente si se quiere新版.
+- **Consecuencias:** +Total control sobre los componentes (no es una dependencia oculta), +tema consistente via CSS variables, -hay que mantener los componentes actualizados manualmente si se quiere actualizar.
 
 ---
 
