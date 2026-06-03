@@ -1,0 +1,50 @@
+;;;;
+Descripción;Entidad(es);Criterio de aceptación;Tipo BBDD;Modificaciones
+El cliente puede dejar un comentario opcional junto con su calificación.;CALIFICACION;"Comentario no requerido; máximo 500 caracteres.";;Se elimina el comentario
+El sistema registra automáticamente la fecha de la calificación.;CALIFICACION;"Campo fecha poblado al momento de INSERT; no editable.";;Se usa la fecha y hora del pedido
+El cliente puede calificar un pedido entregado asignando un puntaje y tipo (comida o entrega).;CALIFICACION / PEDIDO;"Solo disponible cuando estado del pedido es 'entregado'; una calificación por tipo por pedido.";;Una calificacion del 1 al 5 y se la puede dar al pedido y/o al repartidor
+El establecimiento puede consultar el promedio de puntajes de sus pedidos calificados.;CALIFICACION / PEDIDO / ESTABLECIMIENTO;Promedio calculado sobre calificaciones de tipo 'comida' de pedidos del establecimiento.;Postgres;Sin cambios
+El sistema calcula automáticamente el total del pedido sumando precio_unitario × cantidad de cada DETALLE_PEDIDO.;DETALLE_PEDIDO / PEDIDO;"total en PEDIDO = suma de (precio_unitario × cantidad) de todos los detalles; recalculado ante cambios."; - ;Sin cambios
+El sistema permite registrar un establecimiento con nombre, tipo, dirección, email y teléfono.;ESTABLECIMIENTO;Establecimiento creado y disponible para asociar productos.;MongoDB;Tipo: restaurante, super, farmacia, kiosko, bebidas. se agrega contraseña a establecimiento
+El sistema registra la fecha y hora de creación del pedido automáticamente.;PEDIDO;"fecha_hora poblada al momento de INSERT; no editable por el usuario.";;Sin cambios
+El estado del pedido avanza según el flujo: pendiente ? confirmado ? en preparación ? en camino ? entregado.;PEDIDO;"Transiciones de estado válidas; no se puede retroceder de estado; cambio de estado registrado.";;Se agrega estado Cancelado
+El cliente puede crear un pedido seleccionando un establecimiento, uno o más productos y una dirección de entrega.;PEDIDO / DETALLE_PEDIDO;"Pedido creado con estado 'pendiente'; al menos 1 ítem requerido; dirección válida requerida."; - ;Sin cambios
+El cliente puede consultar el historial de sus pedidos con estado y total.;PEDIDO / DETALLE_PEDIDO;"Listado filtrado por id_cliente; incluye detalles de cada pedido; orden cronológico descendente.";Cassandra;Solo se muestran los estado Entregado - Cancelado - En Proceso
+El repartidor puede ver el detalle del pedido asignado: dirección, productos y datos del cliente.;PEDIDO / DETALLE_PEDIDO / CLIENTE;Información accesible solo para el repartidor asignado a ese pedido.;;Sin cambios. Ademas, ve el numero
+El establecimiento puede ver los pedidos que le corresponden y actualizar su estado (confirmar o rechazar).;PEDIDO / ESTABLECIMIENTO;"Solo pedidos con id_establecimiento coincidente; rechazo solo posible en estado 'pendiente'.";;Sin cambios
+El cliente puede aplicar una promoción vigente al momento de confirmar el pedido.;PEDIDO / PROMOCION;"id_promocion guardado en PEDIDO; descuento aplicado solo si total >= monto_mínimo y la promoción está vigente."; - ;Se elimina. No tenemos cupones
+El sistema puede asignar un repartidor disponible a un pedido confirmado.;PEDIDO / REPARTIDOR;"id_repartidor guardado en PEDIDO; el repartidor debe tener disponible=true; solo un pedido activo por repartidor.";;Sin cambios
+El repartidor puede marcar un pedido como 'en camino' y luego como 'entregado'.;PEDIDO / REPARTIDOR;"Solo el repartidor asignado puede cambiar estos estados; 'entregado' es estado terminal.";Redis;Sin cambios
+El sistema puede consultar todos los pedidos asignados a un repartidor.;PEDIDO / REPARTIDOR;"Filtrado por id_repartidor; incluye historial de entregas completadas.";Cassandra;?? Quien es el sistema
+El establecimiento puede agregar productos a su menú con nombre, descripción, precio y disponibilidad.;PRODUCTO;"Producto creado con id_establecimiento correcto; precio mayor a 0.";MongoDB;agregamos promocion_porcentaje y eliminamos la entidad PROMOCION. en mongoDB, como los datos son json, el producto esta embebido en establecimiento
+El establecimiento puede marcar un producto como no disponible sin eliminarlo.;PRODUCTO;"Campo disponible=false; el producto no aparece en el catálogo del cliente hasta ser reactivado.";MongoDB;Sin cambios
+El establecimiento puede editar los datos de un producto existente.;PRODUCTO / ESTABLECIMIENTO;"Cambios reflejados en el catálogo; historial de pedidos no afectado (precio guardado en PRODUCTO).";MongoDB;Puede editar promocion, disponible y precio
+El cliente puede explorar el catálogo de productos de un establecimiento.;PRODUCTO / ESTABLECIMIENTO;"Solo se muestran productos con disponible=true; ordenados por nombre o precio.";MongoDB;Agregamos filtro por tipo (pizza, postre, bebidas)
+El establecimiento puede crear promociones con descuento, monto mínimo y fechas de vigencia.;PRODUCTO / ESTABLECIMIENTO;"Promoción válida solo entre fecha_inicio y fecha_fin; descuento entre 0-100%.";MongoDB;Eliminamos la entidad PROMOCION y agregamos a PRODUCTO el atributo float promocion_porcentaje. En caso de no tener promocion va 0. Eliminamos la fecha de vigencia
+El establecimiento puede listar, crear y dar de baja sus promociones.;PRODUCTO / ESTABLECIMIENTO;"CRUD completo; baja lógica (sin eliminar) para preservar histórico en pedidos ya realizados.";;No se pone
+Una promoción solo puede aplicarse a pedidos del establecimiento al que pertenece.;PRODUCTO / ESTABLECIMIENTO;Validar que id_establecimiento de PROMOCION coincida con id_establecimiento del PEDIDO.;;No se pone
+El sistema valida que una promoción esté vigente al momento de su aplicación (fecha_inicio ? hoy ? fecha_fin).;PRODUCTO / PEDIDO;Si la promoción venció, el sistema la rechaza con mensaje claro al cliente.;;No se pone, eliminamos la fehca de promocion
+El sistema valida que el total del pedido supere el monto_mínimo de la promoción.;PRODUCTO / PEDIDO;Si el total es menor al monto mínimo, el descuento no se aplica y se informa al cliente.;;No se pone
+El sistema permite registrar un repartidor con nombre, apellido, email y teléfono.;REPARTIDOR;"Repartidor creado; email único en el sistema.";;Se agrega contraseña al repartidor
+El repartidor puede marcar su disponibilidad para recibir pedidos.;REPARTIDOR;"Campo disponible actualizado en tiempo real; repartidores no disponibles excluidos de asignación.";;Sin cambios
+El sistema permite registrar un nuevo cliente con nombre, apellido, email y teléfono. ;CLIENTE ;"Registro exitoso; email único en el sistema; error claro si el email ya existe. ";Postgres ;Sin cambios 
+El cliente puede seleccionar una dirección de entrega existente al realizar un pedido. ;DIRECCION_ENTREGA / PEDIDO ;"id_direccion guardado en el pedido; no se permite pedido sin dirección válida. ";MongoDB ;Sin cambios 
+El cliente puede eliminar una dirección de entrega siempre que no esté asociada a un pedido activo. ;DIRECCION_ENTREGA ;"Dirección eliminada; si tiene pedido activo, el sistema bloquea la eliminación con mensaje claro. ";Delete en Postgres ;Sin cambios 
+El cliente puede iniciar sesión con email y contraseña. ;CLIENTE;"Sesión iniciada correctamente; token de sesión emitido; error si credenciales incorrectas. ";Postgres ;Agregamos contrseña, eliminamos token y cred incorrectas 
+El cliente puede consultar y editar su perfil (nombre, apellido, teléfono). ;CLIENTE;"Cambios persistidos; email no editable para preservar identidad. ";Postgres ;Sin cambios 
+El cliente puede registrar una o más direcciones de entrega (calle, número, ciudad, código postal). ;DIRECCION_ENTREGA ;"Dirección asociada al cliente; mínimo 1 dirección requerida para hacer un pedido. ";Postgres ;Sin cambios 
+El cliente puede seleccionar una dirección de entrega existente al realizar un pedido. ;DIRECCION_ENTREGA / PEDIDO ;"id_direccion guardado en el pedido; no se permite pedido sin dirección válida. ";MongoDB ;Sin cambios 
+;;;;
+;;;;
+Entidad;Tipo de DB;;;
+CLIENTE;Postgres;;;
+ESTABLECIMIENTO;Postgres;porque valdria la pena tener tablas duplicadas en distintas BD y en cuales;;
+REPARTIDOR;;;;
+PRODUCTO;;;;
+PEDIDO;;;;
+DETALLE_PEDIDO;;;;
+DIRECCION_ENTREGA;;;;
+CALIFICACION;;;;
+;;;;
+;;;;
+;;;;

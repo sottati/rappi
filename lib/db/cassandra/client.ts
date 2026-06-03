@@ -1,33 +1,30 @@
-import { Client } from 'cassandra-driver'
+import { DataAPIClient, type Db, type SomeRow, type Table } from '@datastax/astra-db-ts'
 
-let client: Client | null = null
+let db: Db | null = null
 
-export function getClient(): Client {
-  if (client) return client
+export function getDb(): Db {
+  if (db) return db
 
-  const cloudSecureConnectBundle = process.env.ASTRA_DB_SECURE_CONNECT_BUNDLE
-  const username = process.env.ASTRA_DB_CLIENT_ID
-  const password = process.env.ASTRA_DB_CLIENT_SECRET
+  const endpoint = process.env.ASTRA_DB_API_ENDPOINT
+  const token = process.env.ASTRA_DB_APPLICATION_TOKEN
   const keyspace = process.env.ASTRA_DB_KEYSPACE
 
-  if (!cloudSecureConnectBundle || !username || !password || !keyspace) {
+  if (!endpoint || !token || !keyspace) {
     throw new Error(
-      'ASTRA_DB_SECURE_CONNECT_BUNDLE, ASTRA_DB_CLIENT_ID, ASTRA_DB_CLIENT_SECRET, and ASTRA_DB_KEYSPACE must be set',
+      'ASTRA_DB_API_ENDPOINT, ASTRA_DB_APPLICATION_TOKEN, and ASTRA_DB_KEYSPACE must be set',
     )
   }
 
-  client = new Client({
-    cloud: { secureConnectBundle: cloudSecureConnectBundle },
-    credentials: { username, password },
-    keyspace,
-  })
+  db = new DataAPIClient().db(endpoint, { token, keyspace })
+  return db
+}
 
-  return client
+export function getTable<Schema extends SomeRow>(
+  tableName: string,
+): Table<Schema> {
+  return getDb().table<Schema>(tableName)
 }
 
 export async function disconnect(): Promise<void> {
-  if (client) {
-    await client.shutdown()
-    client = null
-  }
+  db = null
 }

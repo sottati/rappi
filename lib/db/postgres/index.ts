@@ -1,3 +1,4 @@
 export * as queries from './queries'
-export * from './client'
+export * from './drizzle'
+export * from './schema'
 export * from './types'
