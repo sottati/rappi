@@ -1,14 +1,34 @@
 # Arquitectura
 
+Este documento define como se organiza la app del TPO de Ingenieria de Datos II.
+La tematica asignada es Rappi: una consola web para visualizar datos de pedidos,
+establecimientos, usuarios y repartidores repartidos entre bases relacionales y no
+relacionales.
+
 ## Stack
 
-| Capa | Tecnologia |
-|------|------------|
-| Framework | Next.js 16 (App Router) |
-| Lenguaje | TypeScript |
-| UI | shadcn/ui + Tailwind CSS 4 |
-| Iconos | Hugeicons |
-| Package manager | pnpm |
+| Capa            | Tecnologia                 |
+| --------------- | -------------------------- |
+| Framework       | Next.js 16 (App Router)    |
+| Lenguaje        | TypeScript                 |
+| UI              | shadcn/ui + Tailwind CSS 4 |
+| Iconos          | Hugeicons                  |
+| Package manager | pnpm                       |
+
+## Objetivo del sistema
+
+La aplicacion no busca replicar todo Rappi. Busca demostrar, con una interfaz
+simple, como una operatoria tipo delivery puede repartir sus datos entre motores
+distintos segun el patron de acceso:
+
+- datos transaccionales y entidades base en PostgreSQL;
+- proyecciones documentales enriquecidas en MongoDB;
+- estado vivo y cache en Redis;
+- historico, tracking y analiticas append-oriented en Cassandra/Astra.
+
+La UI sirve como capa de exploracion: permite consultar esos datos por rol
+(`admin`, `repartidor`, `usuario`) y renderizarlos de forma entendible para la
+entrega.
 
 ## Estructura de directorios
 
@@ -53,29 +73,37 @@ types/
 
 ## Motores de datos
 
-| Motor | Proveedor elegido | Uso previsto |
-|------|-------------------|--------------|
-| PostgreSQL | Supabase | Entidades relacionales: pedidos, usuarios, restaurantes, pagos |
-| Redis | Upstash o Redis cloud compatible | Cache, estados temporales, ubicaciones actuales |
-| MongoDB | MongoDB Atlas | Documentos flexibles: reviews, actividad de usuario, metadata |
-| Cassandra | DataStax Astra DB | Eventos de pedido, tracking historico, datos de alta escritura |
+| Motor      | Proveedor elegido                | Uso previsto                                                                                                                          |
+| ---------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | Supabase                         | DLR y consistencia transaccional: establecimientos, productos, clientes, direcciones, repartidores, pedidos, detalles, calificaciones |
+| MongoDB    | MongoDB Atlas                    | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad                               |
+| Redis      | Upstash o Redis cloud compatible | Estado vivo: ubicacion de repartidores, disponibilidad rapida y cache de estado de pedido                                             |
+| Cassandra  | DataStax Astra DB                | Consultas historicas por rol, tracking, metricas diarias y rankings                                                                   |
+
+Detalle completo: `docs/MODELO_DATOS.md`.
 
 ## Modelo relacional
 
 El dominio relacional base sale del DLR del equipo:
 
-| Tabla | Responsabilidad |
-|------|-----------------|
-| `ESTABLECIMIENTO` | Comercios/restaurantes que ofrecen productos |
-| `PRODUCTO` | Productos ofrecidos por cada establecimiento |
-| `CLIENTE` | Usuarios compradores |
-| `DIRECCION_ENTREGA` | Direcciones asociadas a clientes |
-| `REPARTIDOR` | Personas que entregan pedidos |
-| `PEDIDO` | Orden principal con cliente, establecimiento, direccion y repartidor opcional |
-| `DETALLE_PEDIDO` | Items de cada pedido |
-| `CALIFICACION` | Puntaje asociado a un pedido |
+| Tabla               | Responsabilidad                                                               |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `ESTABLECIMIENTO`   | Comercios/restaurantes que ofrecen productos                                  |
+| `PRODUCTO`          | Productos ofrecidos por cada establecimiento                                  |
+| `CLIENTE`           | Usuarios compradores                                                          |
+| `DIRECCION_ENTREGA` | Direcciones asociadas a clientes                                              |
+| `REPARTIDOR`        | Personas que entregan pedidos                                                 |
+| `PEDIDO`            | Orden principal con cliente, establecimiento, direccion y repartidor opcional |
+| `DETALLE_PEDIDO`    | Items de cada pedido                                                          |
+| `CALIFICACION`      | Puntaje asociado a un pedido                                                  |
 
-En TypeScript se usan nombres en PascalCase/camelCase (`Pedido`, `idPedido`, `fechaHora`) y en SQL se espera snake_case (`pedido`, `id_pedido`, `fecha_hora`).
+En TypeScript se usan nombres en PascalCase/camelCase (`Pedido`, `idPedido`,
+`fechaHora`) y en SQL se espera snake_case (`pedido`, `id_pedido`, `fecha_hora`).
+
+Las contrasenias aparecen en el DLR original como atributo de entidades con login,
+pero no se exponen en `types/domain.ts` ni en la UI. Cuando se implemente auth real,
+esa responsabilidad queda en Supabase Auth o en una capa especifica de autenticacion,
+no en componentes visuales.
 
 ## Patron de integracion por motor
 
@@ -90,12 +118,11 @@ types.ts          → tipos especificos del motor (opcional)
 
 ## Diseño de rutas
 
-La aplicacion se organiza por rol visible en URL. No se usa una seccion publica `/clientes`: el consumidor final se modela como `usuario`.
+La aplicacion se organiza por rol visible en URL. No se usa una seccion publica
+`/clientes`: el consumidor final se modela como `usuario`.
 
 ```
 app/
-├── login/
-│   └── page.tsx
 ├── admin/
 │   ├── layout.tsx
 │   ├── page.tsx
@@ -139,11 +166,23 @@ app/
         └── page.tsx
 ```
 
-| Rol | Alcance |
-|-----|---------|
-| `admin` | Duenio/gestor de establecimiento. Ve sus establecimientos, productos, pedidos y analiticas. |
-| `repartidor` | Ve pedidos asignados y administra disponibilidad/estado. |
-| `usuario` | Consumidor final. Ve establecimientos, productos, sus pedidos y direcciones. |
+Estado actual:
+
+| Ruta                         | Estado                                    |
+| ---------------------------- | ----------------------------------------- |
+| `/`                          | Implementada: landing con accesos a roles |
+| `/admin`                     | Implementada: resumen                     |
+| `/admin/establecimientos`    | Implementada: listado                     |
+| `/repartidor`                | Implementada: resumen                     |
+| `/repartidor/disponibilidad` | Implementada como placeholder             |
+| `/usuario`                   | Implementada como placeholder             |
+| Resto de rutas del diagrama  | Pendientes                                |
+
+| Rol          | Alcance                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------- |
+| `admin`      | Duenio/gestor de establecimiento. Ve sus establecimientos, productos, pedidos y analiticas. |
+| `repartidor` | Ve pedidos asignados y administra disponibilidad/estado.                                    |
+| `usuario`    | Consumidor final. Ve establecimientos, productos, sus pedidos y direcciones.                |
 
 Todas las rutas son Server Components por defecto. Solo se convierten a Client Components cuando requieren estado, efectos o interaccion del navegador.
 
@@ -162,9 +201,12 @@ usuario/pedidos/page.tsx     → pedidos del usuario actual
 ## Manejo de errores
 
 Cada funcion de acceso a datos:
+
 - Valida la conexion antes de ejecutar queries.
 - Devuelve `QueryResult<T>` (`{ data: T; error: null } | { data: null; error: string }`).
 - Nunca lanza errores no controlados hacia la UI.
+- La pagina Server Component decide si renderiza datos, `ErrorState`,
+  `EmptyState` o `notFound()`.
 
 ## Modo mock
 
@@ -174,3 +216,14 @@ Hasta conectar los servicios cloud, se puede usar `MOCK_DB=true`.
 - `queries.ts` revisa `MOCK_DB` antes de crear clientes reales.
 - La UI usa el mismo contrato que usara con datos reales.
 - Al conectar una DB, se cambia `MOCK_DB=false` o se elimina la variable local.
+
+## Gaps conocidos
+
+Los gaps se documentan en `docs/GAPS.md`. Resumen:
+
+- conectar credenciales reales cloud y validar queries con `MOCK_DB=false`;
+- completar pantallas navegadas desde layouts;
+- definir seeds/datos de demo para cada motor;
+- agregar auth real cuando el equipo lo decida;
+- decidir que lecturas Cassandra reemplazan o complementan lecturas PostgreSQL;
+- implementar proyecciones MongoDB enriquecidas desde datos del DLR.

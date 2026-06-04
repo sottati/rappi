@@ -100,3 +100,57 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Contexto:** La aplicacion tendra tres roles principales: admin como duenio/gestor de establecimiento, repartidor y usuario consumidor final. Cada rol tiene permisos y vistas distintas.
 - **Decision:** Usar rutas explicitas por rol: `/admin`, `/repartidor`, `/usuario`. Cada rol tiene su propio `layout.tsx` y sus paginas. No se crea una seccion navegable `/clientes`; los clientes se muestran como datos asociados a pedidos o perfil de usuario.
 - **Consecuencias:** +Permisos y navegacion faciles de explicar, +layouts especificos por rol, +URLs claras para la demo. Como contra, algunas pantallas comparten componentes pero viven en rutas distintas, por lo que hay que evitar duplicar UI moviendo piezas comunes a `components/features`.
+
+---
+
+## ADR-012: PostgreSQL como fuente de verdad del DLR
+
+- **Estado:** Aceptada
+- **Contexto:** El TPO necesita mostrar varias bases, pero el dominio base de Rappi ya esta definido como DLR con entidades y relaciones fuertes.
+- **Decision:** PostgreSQL/Supabase mantiene la fuente de verdad relacional: establecimientos, productos, clientes, direcciones, repartidores, pedidos, detalles y calificaciones. Los motores NoSQL pueden duplicar, enriquecer o materializar documentos derivados, pero no reemplazan la integridad transaccional del DLR.
+- **Consecuencias:** +Consistencia clara, +facil de explicar en la defensa, +queries principales tipadas con Drizzle. Como contra, algunos datos se duplican en Cassandra/MongoDB y requieren sincronizacion desde la fuente transaccional.
+
+---
+
+## ADR-013: Cassandra modelada por query
+
+- **Estado:** Aceptada
+- **Contexto:** Cassandra no esta pensada para joins ni consultas ad hoc como PostgreSQL. Conviene partir de las preguntas que la app necesita responder.
+- **Decision:** Las tablas Cassandra se modelan por patron de acceso: pedidos por cliente, pedidos por local, pedidos por repartidor, metricas diarias, calificaciones y rankings. Se acepta duplicar datos descriptivos como nombres o totales para evitar joins.
+- **Consecuencias:** +Lecturas rapidas y explicables, +muestra correctamente el criterio NoSQL, -requiere sincronizar datos derivados desde la fuente transaccional.
+
+---
+
+## ADR-014: MongoDB como capa documental enriquecida del DLR
+
+- **Estado:** Aceptada
+- **Contexto:** La materia prioriza bases NoSQL y el reparto anterior dejaba a MongoDB limitado a reviews y actividad. Al mismo tiempo, el DLR consolidado necesita seguir siendo la base transaccional para preservar claves, relaciones y consistencia.
+- **Decision:** MongoDB no reemplaza el DLR, pero materializa proyecciones documentales enriquecidas derivadas de PostgreSQL: catalogos de establecimientos con productos embebidos, perfiles flexibles de locales, snapshots documentales de pedidos, perfiles/preferencias de usuario, reviews enriquecidas y actividad. Los documentos guardan ids del DLR (`idPedido`, `idCliente`, `idEstablecimiento`, etc.) y pueden duplicar nombres, fotos, direcciones o precios como snapshot de lectura.
+- **Consecuencias:** +MongoDB tiene un rol mas fuerte y defendible para la entrega, +muestra modelado documental real con datos embebidos, +evita joins en lecturas de catalogo/detalle. Como contra, aparece sincronizacion entre PostgreSQL y MongoDB; hay que explicar que los documentos son derivados y que la verdad transaccional sigue en PostgreSQL.
+
+---
+
+## ADR-015: Redis no es fuente de verdad
+
+- **Estado:** Aceptada
+- **Contexto:** Redis es ideal para baja latencia, TTL, cache y geolocalizacion, pero no para persistir el ciclo completo de pedidos.
+- **Decision:** Redis guarda estado vivo: ubicacion actual, disponibilidad rapida y cache de estado de pedido. Si una key expira o se pierde, se reconstruye desde PostgreSQL o historico/eventos.
+- **Consecuencias:** +Menor latencia para vistas operativas, +fallos recuperables, -hay que definir TTLs y fallback al conectar datos reales.
+
+---
+
+## ADR-016: Documentar gaps antes de seguir escalando codigo
+
+- **Estado:** Aceptada
+- **Contexto:** El repo ya tiene base tecnica, pero faltaban gaps explicitados para orientar el trabajo siguiente.
+- **Decision:** Mantener `docs/GAPS.md` como backlog tecnico/documental de alto nivel: integraciones cloud, pantallas pendientes, auth, seeds, esquemas fisicos e indices.
+- **Consecuencias:** +El equipo sabe que falta, +los agentes pueden continuar sin pedir contexto oral, -hay que actualizar el documento cuando se cierre un gap.
+
+---
+
+## ADR-017: Rutas publicas de autenticacion (`/login`, `/signin`)
+
+- **Estado:** Aceptada
+- **Contexto:** Se necesita dejar la estructura de pantallas de auth antes de integrar Supabase Auth. La landing y los layouts por rol seguiran usando sesion mock hasta conectar el proveedor real.
+- **Decision:** Exponer `/login` (inicio de sesion) y `/signin` (registro / crear cuenta) como paginas publicas con formularios en Client Components sin logica de backend por ahora. Los formularios viven en `components/features/auth/` y comparten `AuthShell`.
+- **Consecuencias:** +URLs claras para la demo y el wireframe, +facil enchufar Server Actions o Supabase mas adelante. Como contra, hay que evitar mezclar estas rutas con los layouts por rol hasta definir redirecciones post-login.

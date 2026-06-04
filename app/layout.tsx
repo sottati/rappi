@@ -1,9 +1,10 @@
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
+import { Footer } from "@/components/shared/footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'})
 
@@ -23,9 +24,12 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
     >
-      <body>
+      <body className="flex min-h-svh flex-col">
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <div className="flex min-h-svh flex-1 flex-col">{children}</div>
+            <Footer />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

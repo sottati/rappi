@@ -2,6 +2,7 @@ import type {
   DetallePedido,
   Establecimiento,
   PedidoConDetalle,
+  Producto,
   Repartidor,
 } from '@/types/domain'
 import { EstadoPedido } from '@/types/domain'
@@ -22,6 +23,29 @@ export const mockEstablecimientos: Establecimiento[] = [
     direccion: 'Florida 650, CABA',
     email: 'centro@sushi.example',
     telefono: '+54 11 5555-2002',
+  },
+]
+
+export const mockProductos: Producto[] = [
+  {
+    idProducto: 1,
+    idEstablecimiento: 1,
+    nombre: 'Doble Smash Palermo',
+    descripcion: 'Doble carne, cheddar, pickles y salsa house en pan brioche.',
+    precio: 9200,
+    promocionPorcentaje: 0,
+    disponible: true,
+    foto: 'https://images.rappi.com.ar/rests_taxonomy/3b2189f4-54bc-47e5-8e69-ad8073de60a8.png?e=webp&d=200x200&q=50',
+  },
+  {
+    idProducto: 2,
+    idEstablecimiento: 1,
+    nombre: 'Papas cheddar',
+    descripcion: 'Papas fritas con cheddar fundido y verdeo.',
+    precio: 2800,
+    promocionPorcentaje: 15,
+    disponible: true,
+    foto: 'https://images.rappi.com.ar/rests_taxonomy/8756fb49-2a56-477d-b7d8-3e533c4b3641.png?e=webp&d=200x200&q=50',
   },
 ]
 

@@ -2,6 +2,10 @@
 
 Trabajo practico de Ingenieria de Datos II. La app simula una operatoria tipo Rappi y sirve para consultar/renderizar datos repartidos entre varias bases cloud.
 
+La prioridad actual es dejar asentada la arquitectura, el modelo de datos por
+motor y el flujo de consumo para despues avanzar con pantallas e integraciones
+reales sin rediscutir decisiones base.
+
 ## Funcionamiento
 
 La aplicacion esta separada por rol:
@@ -24,14 +28,24 @@ No hay ruta navegable `/clientes`. El cliente existe como dato interno del usuar
 
 ## Bases de datos
 
-| Motor | Uso en el sistema |
-|------|-------------------|
-| Supabase/PostgreSQL | Entidades del DLR: establecimientos, productos, pedidos, clientes, repartidores, calificaciones. |
-| MongoDB Atlas | Documentos flexibles: reviews, actividad de usuario. |
-| Redis/Upstash | Estado vivo: repartidores disponibles, ubicacion actual, cache de estado de pedidos. |
-| Cassandra/DataStax Astra DB | Eventos historicos de pedidos y tracking de entregas. |
+| Motor                       | Uso en el sistema                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| Supabase/PostgreSQL         | Entidades del DLR: establecimientos, productos, pedidos, clientes, repartidores, calificaciones. |
+| MongoDB Atlas               | Proyecciones documentales: catalogos enriquecidos, perfiles, snapshots de pedidos, reviews y actividad. |
+| Redis/Upstash               | Estado vivo: repartidores disponibles, ubicacion actual, cache de estado de pedidos.             |
+| Cassandra/DataStax Astra DB | Eventos historicos de pedidos y tracking de entregas.                                            |
 
 El DLR define el dominio conceptual. Para la implementacion NoSQL, los datos se pueden desnormalizar segun patrones de acceso.
+
+Detalle de almacenamiento y consumo: [`docs/MODELO_DATOS.md`](docs/MODELO_DATOS.md).
+Gaps actuales y roadmap: [`docs/GAPS.md`](docs/GAPS.md).
+
+Modelos fisicos:
+
+- [`docs/POSTGRES_MODELO_FISICO.md`](docs/POSTGRES_MODELO_FISICO.md)
+- [`docs/CASSANDRA_MODELO_FISICO.cql`](docs/CASSANDRA_MODELO_FISICO.cql)
+- [`docs/MONGODB_MODELO_FISICO.md`](docs/MONGODB_MODELO_FISICO.md)
+- [`docs/REDIS_MODELO_FISICO.md`](docs/REDIS_MODELO_FISICO.md)
 
 ## Flujo de datos
 
@@ -82,6 +96,10 @@ Las paginas de detalle usan ids:
 /usuario/establecimientos/[idEstablecimiento]
 /usuario/pedidos/[idPedido]
 ```
+
+Estado actual: estan implementadas `/`, `/admin`, `/admin/establecimientos`,
+`/repartidor`, `/repartidor/disponibilidad` y `/usuario`. El resto son rutas
+planificadas para completar incrementalmente.
 
 ## Modo mock
 
@@ -200,4 +218,6 @@ erDiagram
 
 - **`AGENTS.md`**: fuente de verdad para agentes de IA y colaboradores. Reglas obligatorias, estado del repo, patrones y checklist.
 - `docs/ARQUITECTURA.md`: estructura, rutas, motores y flujo de datos.
+- `docs/MODELO_DATOS.md`: que dato vive en que motor y como se consume.
+- `docs/GAPS.md`: pendientes para pasar de base documental a produccion.
 - `docs/DECISIONES.md`: ADRs del proyecto.

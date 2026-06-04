@@ -4,17 +4,24 @@ import type {
   EstadoPedido,
   Establecimiento,
   PedidoConDetalle,
+  Producto,
   Repartidor,
 } from '@/types/domain'
 import type { QueryResult } from '../helpers'
 import { fail, ok, shouldUseMockData } from '../helpers'
 import { getDrizzleDb } from './drizzle'
-import { mockEstablecimientos, mockPedidos, mockRepartidores } from './mock'
-import { establecimiento, pedido, repartidor } from './schema'
+import {
+  mockEstablecimientos,
+  mockPedidos,
+  mockProductos,
+  mockRepartidores,
+} from './mock'
+import { establecimiento, pedido, producto, repartidor } from './schema'
 import type {
   DetallePedidoSelect,
   EstablecimientoSelect,
   PedidoSelect,
+  ProductoSelect,
   RepartidorSelect,
 } from './schema'
 
@@ -52,6 +59,19 @@ function mapEstablecimiento(row: EstablecimientoSelect): Establecimiento {
     direccion: row.direccion,
     email: row.email,
     telefono: row.telefono,
+  }
+}
+
+function mapProducto(row: ProductoSelect): Producto {
+  return {
+    idProducto: row.idProducto,
+    idEstablecimiento: row.idEstablecimiento,
+    nombre: row.nombre,
+    descripcion: row.descripcion,
+    precio: row.precio,
+    promocionPorcentaje: row.promocionPorcentaje,
+    disponible: row.disponible,
+    foto: row.foto,
   }
 }
 
@@ -132,6 +152,45 @@ export async function getEstablecimientos(): Promise<QueryResult<Establecimiento
     return ok(rows.map(mapEstablecimiento))
   } catch (e) {
     return fail(e instanceof Error ? e.message : 'Failed to fetch establecimientos')
+  }
+}
+
+export async function getEstablecimientoById(
+  idEstablecimiento: number,
+): Promise<QueryResult<Establecimiento | null>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockEstablecimientos.find((item) => item.idEstablecimiento === idEstablecimiento) ?? null,
+    )
+  }
+
+  try {
+    const row = await getDrizzleDb().query.establecimiento.findFirst({
+      where: eq(establecimiento.idEstablecimiento, idEstablecimiento),
+    })
+    return ok(row ? mapEstablecimiento(row) : null)
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'Failed to fetch establecimiento')
+  }
+}
+
+export async function getProductosByEstablecimiento(
+  idEstablecimiento: number,
+): Promise<QueryResult<Producto[]>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockProductos.filter((item) => item.idEstablecimiento === idEstablecimiento),
+    )
+  }
+
+  try {
+    const rows = await getDrizzleDb().query.producto.findMany({
+      where: eq(producto.idEstablecimiento, idEstablecimiento),
+      orderBy: asc(producto.nombre),
+    })
+    return ok(rows.map(mapProducto))
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'Failed to fetch productos')
   }
 }
 

@@ -2,7 +2,7 @@
 
 Fuente de verdad para agentes de IA y colaboradores del repo. Cursor la carga automaticamente como reglas del workspace. Leer esto antes de tocar codigo.
 
-Documentacion complementaria: `README.md` (overview), `docs/ARQUITECTURA.md` (estructura), `docs/DECISIONES.md` (ADRs).
+Documentacion complementaria: `README.md` (overview), `docs/ARQUITECTURA.md` (estructura), `docs/MODELO_DATOS.md` (reparto por motor), `docs/POSTGRES_MODELO_FISICO.md`, `docs/CASSANDRA_MODELO_FISICO.cql`, `docs/MONGODB_MODELO_FISICO.md`, `docs/REDIS_MODELO_FISICO.md`, `docs/GAPS.md` (pendientes), `docs/DECISIONES.md` (ADRs).
 
 ## Proyecto
 
@@ -10,21 +10,23 @@ Trabajo practico obligatorio de Ingenieria de Datos II.
 
 La tematica asignada es Rappi. El repositorio esta orientado a implementar una aplicacion web que permita conectar, consultar, renderizar y mostrar datos provenientes de distintas bases de datos usadas en el trabajo practico.
 
+Objetivo inmediato: dejar clara la arquitectura, el reparto de datos y el flujo de consumo para luego pasar a produccion/desarrollo de pantallas e integraciones reales.
+
 ## Estado actual del repo
 
 Lo que ya existe (usar como referencia, no reinventar):
 
-| Area | Estado |
-|------|--------|
-| `app/page.tsx` | Landing con links a los 3 roles |
-| `app/admin/` | Layout + resumen + listado de establecimientos |
-| `app/repartidor/` | Layout + resumen + disponibilidad (placeholder) |
-| `app/usuario/` | Layout + resumen (placeholder) |
-| `lib/db/*` | Clientes, queries y mocks por motor |
-| `lib/auth/mock-session.ts` | Sesion mock por rol (auth real pendiente) |
-| `types/domain.ts` | Tipos del DLR en TypeScript |
-| `components/shared/` | `RoleShell`, `ErrorState`, `EmptyState`, `StatCard` |
-| `components/ui/` | shadcn instalados (sidebar, button, input, etc.) |
+| Area                       | Estado                                              |
+| -------------------------- | --------------------------------------------------- |
+| `app/page.tsx`             | Landing con links a los 3 roles                     |
+| `app/admin/`               | Layout + resumen + listado de establecimientos      |
+| `app/repartidor/`          | Layout + resumen + disponibilidad (placeholder)     |
+| `app/usuario/`             | Layout + resumen (placeholder)                      |
+| `lib/db/*`                 | Clientes, queries y mocks por motor                 |
+| `lib/auth/mock-session.ts` | Sesion mock por rol (auth real pendiente)           |
+| `types/domain.ts`          | Tipos del DLR en TypeScript                         |
+| `components/shared/`       | `RoleShell`, `ErrorState`, `EmptyState`, `StatCard` |
+| `components/ui/`           | shadcn instalados (sidebar, button, input, etc.)    |
 
 Lo que el layout ya navega pero **aun no tiene pagina** (crear siguiendo el patron existente):
 
@@ -33,7 +35,7 @@ Lo que el layout ya navega pero **aun no tiene pagina** (crear siguiendo el patr
 - `/repartidor/pedidos`, `/repartidor/pedidos/[idPedido]`
 - `/usuario/establecimientos`, `/usuario/pedidos`, `/usuario/direcciones` y detalles
 
-No crear `/login` ni `/clientes` salvo decision explicita del equipo documentada en `docs/DECISIONES.md`.
+Auth publica (sin logica aun): `/login`, `/signin` — ver ADR-017 en `docs/DECISIONES.md`. No crear `/clientes` salvo decision explicita del equipo.
 
 ## Referencia canonica
 
@@ -86,7 +88,7 @@ El proyecto debe quedar preparado para integrar 4 sistemas de datos:
 
 - PostgreSQL via Supabase como base relacional.
 - Redis via Upstash o Redis cloud compatible para cache, estados temporales y tracking rapido.
-- MongoDB Atlas para documentos flexibles como reviews, actividad o catalogos enriquecidos.
+- MongoDB Atlas para proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad.
 - Cassandra via DataStax Astra DB para eventos, tracking historico o datos de alta escritura.
 
 Las conexiones seran contra servicios cloud de bases de datos. No hardcodear credenciales, URLs privadas, tokens ni passwords.
@@ -98,21 +100,30 @@ Mientras las bases cloud no esten conectadas, las queries usan mocks por defecto
 Import centralizado de motores:
 
 ```ts
-import { postgres, mongodb, redis, cassandra } from '@/lib/db'
+import { postgres, mongodb, redis, cassandra } from "@/lib/db"
 ```
 
 ## Reparto de datos por motor
 
 Respetar este reparto al agregar queries o pantallas. El DLR vive en PostgreSQL; los demas motores complementan con datos de acceso distinto.
 
-| Motor | Modulo | Datos | Queries existentes |
-|-------|--------|-------|-------------------|
-| PostgreSQL (Supabase) | `lib/db/postgres` | Entidades del DLR: establecimientos, pedidos, detalles, repartidores | `getEstablecimientos`, `getPedidos`, `getPedidoById`, `getPedidosByEstado`, `getRepartidoresDisponibles`, `getPedidosByRepartidor` |
-| MongoDB Atlas | `lib/db/mongodb` | Documentos flexibles: reviews, actividad de usuario | `getRestaurantReviews`, `createReview`, `getUserActivity` |
-| Redis (Upstash) | `lib/db/redis` | Estado vivo: ubicacion de repartidor, cache de estado de pedido | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus` |
-| Cassandra (Astra DB) | `lib/db/cassandra` | Eventos historicos y tracking | `getOrderEvents`, `getDeliveryTrackingPoints` |
+| Motor                 | Modulo             | Datos                                                                | Queries existentes                                                                                                                 |
+| --------------------- | ------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL (Supabase) | `lib/db/postgres`  | Entidades del DLR: establecimientos, pedidos, detalles, repartidores | `getEstablecimientos`, `getPedidos`, `getPedidoById`, `getPedidosByEstado`, `getRepartidoresDisponibles`, `getPedidosByRepartidor` |
+| MongoDB Atlas         | `lib/db/mongodb`   | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad | `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: catalogos/perfiles/snapshots |
+| Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido      | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`                                           |
+| Cassandra (Astra DB)  | `lib/db/cassandra` | Historicos, metricas y lecturas por patron de acceso                 | `getPedidosPorCliente`, `getPedidosPorLocal`, `getPedidosPorRepartidor`, `getMetricasGlobalesDiarias`, `getRankingLocalesPorMes`   |
 
 Tipos del dominio relacional en `types/domain.ts` (camelCase). En SQL/Supabase usar snake_case (`id_pedido`, `fecha_hora`).
+
+Detalle canonico extendido: `docs/MODELO_DATOS.md`.
+
+Modelos fisicos por motor:
+
+- PostgreSQL/Supabase: `docs/POSTGRES_MODELO_FISICO.md`
+- Cassandra/Astra DB: `docs/CASSANDRA_MODELO_FISICO.cql`
+- MongoDB Atlas: `docs/MONGODB_MODELO_FISICO.md`
+- Redis/Upstash: `docs/REDIS_MODELO_FISICO.md`
 
 ## Auth temporal
 
@@ -141,6 +152,7 @@ Al implementar pantallas filtradas por usuario, usar el `userId` de la sesion mo
 - Redis vive en `lib/db/redis`.
 - MongoDB vive en `lib/db/mongodb`.
 - Cassandra/DataStax Astra DB vive en `lib/db/cassandra`.
+- MongoDB puede duplicar datos del DLR como documentos derivados, pero PostgreSQL sigue siendo la fuente de verdad para integridad, estado vigente y transacciones.
 - Documentar brevemente que datos aporta cada motor cuando se agregue la implementacion.
 - Mantener una capa comun de normalizacion si la UI necesita combinar datos entre motores.
 
@@ -160,9 +172,9 @@ Client Component → renderiza con shadcn/ui, estado local para interactividad
 
 ```tsx
 // app/admin/pedidos/page.tsx — Server Component (sin "use client")
-import { ErrorState } from '@/components/shared/query-state'
-import { postgres } from '@/lib/db'
-import { PedidoList } from '@/components/features/PedidoList'
+import { ErrorState } from "@/components/shared/query-state"
+import { postgres } from "@/lib/db"
+import { PedidoList } from "@/components/features/PedidoList"
 
 export default async function AdminPedidosPage() {
   const result = await postgres.queries.getPedidos()
@@ -173,18 +185,19 @@ export default async function AdminPedidosPage() {
 
 ```tsx
 // components/features/PedidoList.tsx — Client Component
-'use client'
-import type { PedidoConDetalle } from '@/types/domain'
-import { useState } from 'react'
+"use client"
+import type { PedidoConDetalle } from "@/types/domain"
+import { useState } from "react"
 
 export function PedidoList({ pedidos }: { pedidos: PedidoConDetalle[] }) {
-  const [estadoFilter, setEstadoFilter] = useState('all')
+  const [estadoFilter, setEstadoFilter] = useState("all")
   // Logica de filtrado local, sin fetch adicional
   // ...
 }
 ```
 
 **Reglas que todo agente debe cumplir:**
+
 1. Server Component llama a `lib/db/<motor>/queries` — nunca llamar a DB desde un Client Component.
 2. Cada funcion en `queries.ts` devuelve `QueryResult<T>` (tipo `{ data | error }`), no lanza excepciones.
 3. El Server Component maneja el caso error antes de renderizar.
