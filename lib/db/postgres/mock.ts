@@ -1,4 +1,5 @@
 import type {
+  CuentaApp,
   DetallePedido,
   Establecimiento,
   PedidoConDetalle,
@@ -116,6 +117,42 @@ export const mockPedidos: PedidoConDetalle[] = [
     estado: EstadoPedido.Preparando,
     total: 18500,
     detalles: mockDetallesPedido.filter((detalle) => detalle.idPedido === 2),
+  },
+]
+
+/** Contraseña compartida para cuentas mock (solo desarrollo). */
+export const mockTestPassword = 'test123'
+
+export const mockCuentasApp: CuentaApp[] = [
+  {
+    idCuenta: 1,
+    email: 'admin@burger.example',
+    contrasenia: mockTestPassword,
+    rol: 'admin',
+    nombreVisible: 'Duenio Burger Palermo',
+    idCliente: null,
+    idRepartidor: null,
+    idEstablecimiento: 1,
+  },
+  {
+    idCuenta: 2,
+    email: 'lucia.gomez@example.com',
+    contrasenia: mockTestPassword,
+    rol: 'repartidor',
+    nombreVisible: 'Lucia Gomez',
+    idCliente: null,
+    idRepartidor: 1,
+    idEstablecimiento: null,
+  },
+  {
+    idCuenta: 3,
+    email: 'ana.perez@example.com',
+    contrasenia: mockTestPassword,
+    rol: 'usuario',
+    nombreVisible: 'Ana Perez',
+    idCliente: 1,
+    idRepartidor: null,
+    idEstablecimiento: null,
   },
 ]
 

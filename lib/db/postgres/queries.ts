@@ -1,5 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm'
 import type {
+  CuentaApp,
   DetallePedido,
   EstadoPedido,
   Establecimiento,
@@ -11,13 +12,15 @@ import type { QueryResult } from '../helpers'
 import { fail, ok, shouldUseMockData } from '../helpers'
 import { getDrizzleDb } from './drizzle'
 import {
+  mockCuentasApp,
   mockEstablecimientos,
   mockPedidos,
   mockProductos,
   mockRepartidores,
 } from './mock'
-import { establecimiento, pedido, producto, repartidor } from './schema'
+import { cuentaApp, establecimiento, pedido, producto, repartidor } from './schema'
 import type {
+  CuentaAppSelect,
   DetallePedidoSelect,
   EstablecimientoSelect,
   PedidoSelect,
@@ -225,6 +228,47 @@ export async function getPedidosByRepartidor(
     return ok(rows.map(mapPedido))
   } catch (e) {
     return fail(e instanceof Error ? e.message : 'Failed to fetch pedidos by repartidor')
+  }
+}
+
+function mapCuentaApp(row: CuentaAppSelect): CuentaApp {
+  return {
+    idCuenta: row.idCuenta,
+    email: row.email,
+    contrasenia: row.contrasenia,
+    rol: row.rol,
+    nombreVisible: row.nombreVisible,
+    idCliente: row.idCliente,
+    idRepartidor: row.idRepartidor,
+    idEstablecimiento: row.idEstablecimiento,
+  }
+}
+
+export async function authenticateCuenta(
+  email: string,
+  password: string,
+): Promise<QueryResult<CuentaApp>> {
+  const normalizedEmail = email.trim().toLowerCase()
+
+  if (shouldUseMockData()) {
+    const cuenta = mockCuentasApp.find(
+      (item) =>
+        item.email.toLowerCase() === normalizedEmail && item.contrasenia === password,
+    )
+    if (!cuenta) return fail('Email o contraseña incorrectos.')
+    return ok(cuenta)
+  }
+
+  try {
+    const row = await getDrizzleDb().query.cuentaApp.findFirst({
+      where: eq(cuentaApp.email, normalizedEmail),
+    })
+    if (!row || row.contrasenia !== password) {
+      return fail('Email o contraseña incorrectos.')
+    }
+    return ok(mapCuentaApp(row))
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'Error al autenticar')
   }
 }
 

@@ -11,7 +11,9 @@ estado vigente mantenido en PostgreSQL.
 Implementacion actual:
 
 - schema Drizzle: `lib/db/postgres/schema.ts`;
-- migracion generada: `supabase/migrations/0000_sticky_callisto.sql`;
+- migraciones generadas:
+  - `supabase/migrations/0000_sticky_callisto.sql`;
+  - `supabase/migrations/0001_cuenta_app.sql`;
 - queries: `lib/db/postgres/queries.ts`.
 
 ## Enums
@@ -29,6 +31,12 @@ CREATE TYPE estado_pedido AS ENUM (
 CREATE TYPE tipo_calificacion AS ENUM (
   'establecimiento',
   'repartidor'
+);
+
+CREATE TYPE app_rol AS ENUM (
+  'admin',
+  'repartidor',
+  'usuario'
 );
 ```
 
@@ -142,19 +150,47 @@ Uso: items de cada pedido; conserva precio unitario del momento del pedido.
 
 Uso: puntaje sobre establecimiento o repartidor; base para metricas/promedios.
 
+### cuenta_app
+
+| Columna              | Tipo      | Restricciones                  |
+| -------------------- | --------- | ------------------------------ |
+| `id_cuenta`          | `serial`  | PK                             |
+| `email`              | `text`    | not null, unique               |
+| `contrasenia`        | `text`    | not null                       |
+| `rol`                | `app_rol` | not null                       |
+| `nombre_visible`     | `text`    | not null                       |
+| `id_cliente`         | `integer` | nullable, FK `cliente`         |
+| `id_repartidor`      | `integer` | nullable, FK `repartidor`      |
+| `id_establecimiento` | `integer` | nullable, FK `establecimiento` |
+
+Uso: identidad interna de la aplicacion y punto de entrada para login. Cada
+cuenta vincula un email de acceso con un rol visible de la app y con la entidad
+de dominio que puede operar:
+
+- `admin`: gestiona un `establecimiento`;
+- `repartidor`: opera como un `repartidor`;
+- `usuario`: consume la app como un `cliente`.
+
+`cuenta_app` queda como parte permanente del modelo fisico del proyecto. No se
+planea reemplazarla por Supabase Auth; por lo tanto, las mejoras futuras de
+seguridad deben aplicarse sobre esta tabla y su capa de queries.
+
 ## Relaciones y deletes
 
-| Relacion                                                            | Regla                |
-| ------------------------------------------------------------------- | -------------------- |
-| `producto.id_establecimiento -> establecimiento.id_establecimiento` | `ON DELETE CASCADE`  |
-| `direccion_entrega.id_cliente -> cliente.id_cliente`                | `ON DELETE CASCADE`  |
-| `pedido.id_cliente -> cliente.id_cliente`                           | `ON DELETE RESTRICT` |
-| `pedido.id_establecimiento -> establecimiento.id_establecimiento`   | `ON DELETE RESTRICT` |
-| `pedido.id_repartidor -> repartidor.id_repartidor`                  | `ON DELETE SET NULL` |
-| `pedido.id_direccion -> direccion_entrega.id_direccion`             | `ON DELETE RESTRICT` |
-| `detalle_pedido.id_pedido -> pedido.id_pedido`                      | `ON DELETE CASCADE`  |
-| `detalle_pedido.id_producto -> producto.id_producto`                | `ON DELETE RESTRICT` |
-| `calificacion.id_pedido -> pedido.id_pedido`                        | `ON DELETE CASCADE`  |
+| Relacion                                                              | Regla                |
+| --------------------------------------------------------------------- | -------------------- |
+| `producto.id_establecimiento -> establecimiento.id_establecimiento`   | `ON DELETE CASCADE`  |
+| `direccion_entrega.id_cliente -> cliente.id_cliente`                  | `ON DELETE CASCADE`  |
+| `pedido.id_cliente -> cliente.id_cliente`                             | `ON DELETE RESTRICT` |
+| `pedido.id_establecimiento -> establecimiento.id_establecimiento`     | `ON DELETE RESTRICT` |
+| `pedido.id_repartidor -> repartidor.id_repartidor`                    | `ON DELETE SET NULL` |
+| `pedido.id_direccion -> direccion_entrega.id_direccion`               | `ON DELETE RESTRICT` |
+| `detalle_pedido.id_pedido -> pedido.id_pedido`                        | `ON DELETE CASCADE`  |
+| `detalle_pedido.id_producto -> producto.id_producto`                  | `ON DELETE RESTRICT` |
+| `calificacion.id_pedido -> pedido.id_pedido`                          | `ON DELETE CASCADE`  |
+| `cuenta_app.id_cliente -> cliente.id_cliente`                         | `ON DELETE SET NULL` |
+| `cuenta_app.id_repartidor -> repartidor.id_repartidor`                | `ON DELETE SET NULL` |
+| `cuenta_app.id_establecimiento -> establecimiento.id_establecimiento` | `ON DELETE SET NULL` |
 
 ## Indices
 
@@ -169,17 +205,21 @@ Uso: puntaje sobre establecimiento o repartidor; base para metricas/promedios.
 | `detalle_pedido_id_pedido_idx`     | `detalle_pedido(id_pedido)`     | detalles de pedido        |
 | `detalle_pedido_id_producto_idx`   | `detalle_pedido(id_producto)`   | trazabilidad por producto |
 | `calificacion_id_pedido_idx`       | `calificacion(id_pedido)`       | calificaciones de pedido  |
+| `cuenta_app_email_unique`          | `cuenta_app(email)`             | login por email           |
 
 ## Queries que consume la app
 
-| Query TS                     | Tablas                     |
-| ---------------------------- | -------------------------- |
-| `getEstablecimientos`        | `establecimiento`          |
-| `getPedidos`                 | `pedido`, `detalle_pedido` |
-| `getPedidoById`              | `pedido`, `detalle_pedido` |
-| `getPedidosByEstado`         | `pedido`, `detalle_pedido` |
-| `getRepartidoresDisponibles` | `repartidor`               |
-| `getPedidosByRepartidor`     | `pedido`, `detalle_pedido` |
+| Query TS                        | Tablas                     |
+| ------------------------------- | -------------------------- |
+| `getEstablecimientos`           | `establecimiento`          |
+| `getPedidos`                    | `pedido`, `detalle_pedido` |
+| `getPedidoById`                 | `pedido`, `detalle_pedido` |
+| `getPedidosByEstado`            | `pedido`, `detalle_pedido` |
+| `getRepartidoresDisponibles`    | `repartidor`               |
+| `getPedidosByRepartidor`        | `pedido`, `detalle_pedido` |
+| `getEstablecimientoById`        | `establecimiento`          |
+| `getProductosByEstablecimiento` | `producto`                 |
+| `authenticateCuenta`            | `cuenta_app`               |
 
 ## Gaps fisicos
 
@@ -189,5 +229,9 @@ Uso: puntaje sobre establecimiento o repartidor; base para metricas/promedios.
   - `producto.promocion_porcentaje` entre 0 y 100;
   - `detalle_pedido.cantidad > 0`;
   - montos `>= 0`.
-- Decidir auth real: contrasenias del DLR no deben persistirse como texto plano.
-- Crear seeds de demo para Supabase.
+- Agregar constraints por rol en `cuenta_app`:
+  - `admin` requiere `id_establecimiento` y no requiere `id_cliente` ni `id_repartidor`;
+  - `repartidor` requiere `id_repartidor`;
+  - `usuario` requiere `id_cliente`.
+- Cambiar `cuenta_app.contrasenia` a un hash de password y validar con comparacion segura.
+- Completar seeds de demo con `detalle_pedido` y mayor paridad con los mocks.

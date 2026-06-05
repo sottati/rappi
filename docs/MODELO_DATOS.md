@@ -6,12 +6,12 @@ ubicar cada dato segun consistencia, forma de consulta y frecuencia de escritura
 
 ## Resumen
 
-| Motor               | Rol en la arquitectura                    | Motivo                                                                                     |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| PostgreSQL/Supabase | Fuente de verdad relacional               | Integridad, claves foraneas, transacciones y DLR                                           |
-| MongoDB Atlas       | Proyecciones documentales enriquecidas    | Catalogos, perfiles, snapshots y reviews con estructura flexible derivada del DLR           |
-| Redis/Upstash       | Estado vivo y cache                       | Baja latencia, TTL y ubicaciones/estados temporales                                        |
-| Cassandra/Astra DB  | Historico y analitica por consulta        | Alta escritura, datos append-only y tablas modeladas por query                             |
+| Motor               | Rol en la arquitectura                 | Motivo                                                                            |
+| ------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
+| PostgreSQL/Supabase | Fuente de verdad relacional            | Integridad, claves foraneas, transacciones y DLR                                  |
+| MongoDB Atlas       | Proyecciones documentales enriquecidas | Catalogos, perfiles, snapshots y reviews con estructura flexible derivada del DLR |
+| Redis/Upstash       | Estado vivo y cache                    | Baja latencia, TTL y ubicaciones/estados temporales                               |
+| Cassandra/Astra DB  | Historico y analitica por consulta     | Alta escritura, datos append-only y tablas modeladas por query                    |
 
 ## PostgreSQL/Supabase
 
@@ -26,6 +26,16 @@ Fuente de verdad para el DLR:
 - `detalle_pedido`
 - `calificacion`
 
+Tabla auxiliar actual para acceso a la app:
+
+- `cuenta_app`
+
+`cuenta_app` no forma parte del DLR transaccional original de pedidos, pero si
+queda como tabla permanente de identidad interna de la aplicacion. Vincula un
+email de acceso y un rol visible con la entidad de negocio que puede operar:
+`establecimiento` para admin, `repartidor` para repartidor y `cliente` para
+usuario consumidor.
+
 Modelo fisico: `docs/POSTGRES_MODELO_FISICO.md`.
 
 Uso desde codigo:
@@ -38,14 +48,51 @@ Uso desde codigo:
 Consultas actuales:
 
 - `getEstablecimientos`
+- `getEstablecimientoById`
+- `getProductosByEstablecimiento`
 - `getPedidos`
 - `getPedidoById`
 - `getPedidosByEstado`
 - `getRepartidoresDisponibles`
 - `getPedidosByRepartidor`
+- `authenticateCuenta`
 
 Regla: si el dato necesita integridad referencial o participa en el flujo
 transaccional de un pedido, vive primero aca.
+
+### Estado actual de datos cargados
+
+La implementacion ya tiene una primera base para dejar de depender solo de
+pantallas mock:
+
+| Dato              | Estado                               | Uso actual                                     |
+| ----------------- | ------------------------------------ | ---------------------------------------------- |
+| `cuenta_app`      | 3 cuentas cargadas                   | login interno por rol                          |
+| `establecimiento` | seed demo con locales iniciales      | catalogo, admin y usuario                      |
+| `producto`        | productos demo para `Burger Palermo` | `/admin/productos`                             |
+| `cliente`         | cliente demo `Ana Perez`             | sesion de usuario consumidor                   |
+| `repartidor`      | repartidor demo `Lucia Gomez`        | sesion de repartidor                           |
+| `pedido`          | pedido demo inicial                  | base para pantallas de pedidos                 |
+| `detalle_pedido`  | pendiente en seed real               | items del pedido; hoy se cubre mejor por mocks |
+
+Cuentas actuales en `cuenta_app`:
+
+| Email                     | Rol          | Entidad asociada                 |
+| ------------------------- | ------------ | -------------------------------- |
+| `admin@burger.example`    | `admin`      | `establecimiento` Burger Palermo |
+| `lucia.gomez@example.com` | `repartidor` | repartidor Lucia Gomez           |
+| `ana.perez@example.com`   | `usuario`    | cliente Ana Perez                |
+
+Estas cuentas sirven para validar el flujo de sesion y permisos por rol. Como
+`cuenta_app` queda como identidad interna permanente, cada pantalla protegida
+debe consultar datos filtrados por la entidad asociada a la sesion:
+
+- admin: `id_establecimiento`;
+- repartidor: `id_repartidor`;
+- usuario: `id_cliente`.
+
+No alcanza con proteger la ruta por rol: las queries tambien deben quedar
+acotadas al id de dominio correspondiente.
 
 Justificacion teorica: segun la teoria de la materia, las bases relacionales
 aportan consistencia fuerte, transacciones, claves foraneas, SQL e indices
@@ -66,14 +113,14 @@ Modelo fisico: `docs/MONGODB_MODELO_FISICO.md`.
 
 Colecciones previstas:
 
-| Coleccion             | Documento                                                        | Patron de lectura                                      |
-| --------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
-| `restaurant_catalogs` | catalogo enriquecido de establecimiento con productos embebidos   | por `idEstablecimiento`, busqueda/listado por categoria |
-| `restaurant_profiles` | perfil operativo/visual flexible del establecimiento             | por `idEstablecimiento`                                |
-| `order_documents`     | snapshot documental del pedido con items, direccion y nombres     | por `idPedido`, por `idCliente`, por `idEstablecimiento` |
-| `user_profiles`       | preferencias, favoritos y metadata flexible del consumidor        | por `idCliente`                                        |
-| `reviews`             | review enriquecida de pedido/local/repartidor                     | por establecimiento, usuario o pedido                  |
-| `user_activity`       | eventos flexibles de actividad de usuario                         | por `idCliente`, ultimos N eventos                     |
+| Coleccion             | Documento                                                       | Patron de lectura                                        |
+| --------------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
+| `restaurant_catalogs` | catalogo enriquecido de establecimiento con productos embebidos | por `idEstablecimiento`, busqueda/listado por categoria  |
+| `restaurant_profiles` | perfil operativo/visual flexible del establecimiento            | por `idEstablecimiento`                                  |
+| `order_documents`     | snapshot documental del pedido con items, direccion y nombres   | por `idPedido`, por `idCliente`, por `idEstablecimiento` |
+| `user_profiles`       | preferencias, favoritos y metadata flexible del consumidor      | por `idCliente`                                          |
+| `reviews`             | review enriquecida de pedido/local/repartidor                   | por establecimiento, usuario o pedido                    |
+| `user_activity`       | eventos flexibles de actividad de usuario                       | por `idCliente`, ultimos N eventos                       |
 
 Uso desde codigo:
 

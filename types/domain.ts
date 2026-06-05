@@ -1,3 +1,16 @@
+export type AppRole = 'admin' | 'repartidor' | 'usuario'
+
+export interface CuentaApp {
+  idCuenta: number
+  email: string
+  contrasenia: string
+  rol: AppRole
+  nombreVisible: string
+  idCliente: number | null
+  idRepartidor: number | null
+  idEstablecimiento: number | null
+}
+
 export interface Establecimiento {
   idEstablecimiento: number
   nombre: string

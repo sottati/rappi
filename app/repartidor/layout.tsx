@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 
 import { RoleShell } from '@/components/shared/role-shell'
-import { getMockSession } from '@/lib/auth/mock-session'
+import { requireSession } from '@/lib/auth/require-session'
 
 export default async function RepartidorLayout({ children }: { children: ReactNode }) {
-  const session = await getMockSession('repartidor')
+  const session = await requireSession('repartidor')
 
   return (
     <RoleShell

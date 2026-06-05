@@ -1,9 +1,9 @@
 import { ErrorState } from '@/components/shared/query-state'
-import { getMockSession } from '@/lib/auth/mock-session'
+import { requireSession } from '@/lib/auth/require-session'
 import { postgres, redis } from '@/lib/db'
 
 export default async function RepartidorDisponibilidadPage() {
-  const session = await getMockSession('repartidor')
+  const session = await requireSession('repartidor')
   const [repartidores, location] = await Promise.all([
     postgres.queries.getRepartidoresDisponibles(),
     redis.queries.getDeliveryLocation(`del_00${session.userId}`),

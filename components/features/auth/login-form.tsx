@@ -1,17 +1,19 @@
 'use client'
 
+import { useActionState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { loginAction, type LoginFormState } from '@/lib/auth/actions'
 import Link from 'next/link'
-import type { FormEvent } from 'react'
 
-function handleSubmit(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault()
-}
+const initialState: LoginFormState = {}
 
 export function LoginForm() {
+  const [state, formAction, pending] = useActionState(loginAction, initialState)
+
   return (
-    <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+    <form className="space-y-4" action={formAction} noValidate>
       <div className="space-y-2">
         <label htmlFor="login-email" className="text-sm font-medium">
           Email
@@ -21,7 +23,7 @@ export function LoginForm() {
           name="email"
           type="email"
           autoComplete="email"
-          placeholder="tu@email.com"
+          placeholder="admin@burger.example"
           required
         />
       </div>
@@ -35,13 +37,19 @@ export function LoginForm() {
           name="password"
           type="password"
           autoComplete="current-password"
-          placeholder="••••••••"
+          placeholder="test123"
           required
         />
       </div>
 
-      <Button type="submit" className="w-full">
-        Iniciar sesión
+      {state.error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? 'Ingresando…' : 'Iniciar sesión'}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">

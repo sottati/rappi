@@ -2,9 +2,11 @@ import { RappiLogo, RappiWordmark } from '@/components/rappi-logo'
 import Link from 'next/link'
 
 import { NavbarActions } from '@/components/navbar-actions'
+import { getSession } from '@/lib/auth/session'
 import { Input } from './ui/input'
 
-export default function Navbar() {
+export default async function Navbar() {
+  const session = await getSession()
   return (
     <header className="fixed top-0 z-50 flex w-full flex-row items-center justify-between gap-3 border-b bg-background p-4 sm:px-6 lg:px-8">
       <Link
@@ -20,7 +22,7 @@ export default function Navbar() {
       <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-2">
         <Input type="search" placeholder="Buscar en Rappi..." className="w-full" />
       </div>
-      <NavbarActions />
+      <NavbarActions session={session} />
     </header>
   )
 }

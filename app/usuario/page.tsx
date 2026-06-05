@@ -2,11 +2,11 @@ import Link from 'next/link'
 
 import { ErrorState } from '@/components/shared/query-state'
 import { StatCard } from '@/components/shared/stat-card'
-import { getMockSession } from '@/lib/auth/mock-session'
+import { requireSession } from '@/lib/auth/require-session'
 import { postgres } from '@/lib/db'
 
 export default async function UsuarioPage() {
-  const session = await getMockSession('usuario')
+  const session = await requireSession('usuario')
   const [establecimientos, pedidos] = await Promise.all([
     postgres.queries.getEstablecimientos(),
     postgres.queries.getPedidos(),

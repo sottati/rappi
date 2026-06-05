@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 
 import { RoleShell } from '@/components/shared/role-shell'
-import { getMockSession } from '@/lib/auth/mock-session'
+import { requireSession } from '@/lib/auth/require-session'
 
 export default async function UsuarioLayout({ children }: { children: ReactNode }) {
-  const session = await getMockSession('usuario')
+  const session = await requireSession('usuario')
 
   return (
     <RoleShell

@@ -29,6 +29,8 @@ export const tipoCalificacionEnum = pgEnum('tipo_calificacion', [
   TipoCalificacion.Repartidor,
 ])
 
+export const appRolEnum = pgEnum('app_rol', ['admin', 'repartidor', 'usuario'])
+
 export const establecimiento = pgTable('establecimiento', {
   idEstablecimiento: serial('id_establecimiento').primaryKey(),
   nombre: text('nombre').notNull(),
@@ -152,6 +154,25 @@ export const calificacion = pgTable(
   (table) => [index('calificacion_id_pedido_idx').on(table.idPedido)],
 )
 
+/** Cuentas de acceso a la app (auth de prueba; no reemplaza Supabase Auth). */
+export const cuentaApp = pgTable('cuenta_app', {
+  idCuenta: serial('id_cuenta').primaryKey(),
+  email: text('email').notNull().unique(),
+  contrasenia: text('contrasenia').notNull(),
+  rol: appRolEnum('rol').notNull(),
+  nombreVisible: text('nombre_visible').notNull(),
+  idCliente: integer('id_cliente').references(() => cliente.idCliente, {
+    onDelete: 'set null',
+  }),
+  idRepartidor: integer('id_repartidor').references(() => repartidor.idRepartidor, {
+    onDelete: 'set null',
+  }),
+  idEstablecimiento: integer('id_establecimiento').references(
+    () => establecimiento.idEstablecimiento,
+    { onDelete: 'set null' },
+  ),
+})
+
 export const establecimientoRelations = relations(establecimiento, ({ many }) => ({
   productos: many(producto),
   pedidos: many(pedido),
@@ -221,6 +242,21 @@ export const calificacionRelations = relations(calificacion, ({ one }) => ({
   }),
 }))
 
+export const cuentaAppRelations = relations(cuentaApp, ({ one }) => ({
+  cliente: one(cliente, {
+    fields: [cuentaApp.idCliente],
+    references: [cliente.idCliente],
+  }),
+  repartidor: one(repartidor, {
+    fields: [cuentaApp.idRepartidor],
+    references: [repartidor.idRepartidor],
+  }),
+  establecimiento: one(establecimiento, {
+    fields: [cuentaApp.idEstablecimiento],
+    references: [establecimiento.idEstablecimiento],
+  }),
+}))
+
 export type EstablecimientoSelect = typeof establecimiento.$inferSelect
 export type ProductoSelect = typeof producto.$inferSelect
 export type ClienteSelect = typeof cliente.$inferSelect
@@ -229,3 +265,4 @@ export type RepartidorSelect = typeof repartidor.$inferSelect
 export type PedidoSelect = typeof pedido.$inferSelect
 export type DetallePedidoSelect = typeof detallePedido.$inferSelect
 export type CalificacionSelect = typeof calificacion.$inferSelect
+export type CuentaAppSelect = typeof cuentaApp.$inferSelect

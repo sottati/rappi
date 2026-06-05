@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { LogoutButton } from '@/components/features/auth/logout-button'
 import {
   Sidebar,
   SidebarContent,
@@ -129,6 +130,9 @@ export function RoleShell({
                 <HugeiconsIcon icon={UserIcon} strokeWidth={2} />
                 <span>{userLabel}</span>
               </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <LogoutButton />
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
