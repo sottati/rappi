@@ -16,6 +16,7 @@ export function getDrizzleDb(): PostgresJsDatabase<typeof schema> {
     throw new Error('DATABASE_URL must be set')
   }
 
+  // Supabase transaction pooler (puerto 6543): prepare debe ser false.
   client = postgres(databaseUrl, {
     max: 1,
     prepare: false,

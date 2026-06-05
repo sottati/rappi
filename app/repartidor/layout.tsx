@@ -13,7 +13,7 @@ export default async function RepartidorLayout({ children }: { children: ReactNo
       description="Vista operativa para disponibilidad, pedidos asignados y estado de entrega."
       userLabel={session.displayName}
       navItems={[
-        { href: '/repartidor', label: 'Perfil' },
+        { href: '/repartidor', label: 'Inicio' },
         { href: '/repartidor/pedidos', label: 'Pedidos' },
         { href: '/repartidor/disponibilidad', label: 'Disponibilidad' },
       ]}
