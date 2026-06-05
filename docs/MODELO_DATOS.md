@@ -53,7 +53,10 @@ Consultas actuales:
 - `getPedidos`
 - `getPedidoById`
 - `getPedidosByEstado`
+- `getPedidosByCliente`
+- `getPedidosByEstablecimiento`
 - `getRepartidoresDisponibles`
+- `getRepartidorById`
 - `getPedidosByRepartidor`
 - `authenticateCuenta`
 
@@ -65,15 +68,16 @@ transaccional de un pedido, vive primero aca.
 La implementacion ya tiene una primera base para dejar de depender solo de
 pantallas mock:
 
-| Dato              | Estado                               | Uso actual                                     |
-| ----------------- | ------------------------------------ | ---------------------------------------------- |
-| `cuenta_app`      | 3 cuentas cargadas                   | login interno por rol                          |
-| `establecimiento` | seed demo con locales iniciales      | catalogo, admin y usuario                      |
-| `producto`        | productos demo para `Burger Palermo` | `/admin/productos`                             |
-| `cliente`         | cliente demo `Ana Perez`             | sesion de usuario consumidor                   |
-| `repartidor`      | repartidor demo `Lucia Gomez`        | sesion de repartidor                           |
-| `pedido`          | pedido demo inicial                  | base para pantallas de pedidos                 |
-| `detalle_pedido`  | pendiente en seed real               | items del pedido; hoy se cubre mejor por mocks |
+| Dato              | Estado                               | Uso actual                    |
+| ----------------- | ------------------------------------ | ----------------------------- |
+| `cuenta_app`      | 3 cuentas cargadas                   | login interno por rol         |
+| `establecimiento` | seed demo con locales iniciales      | catalogo, admin y usuario     |
+| `producto`        | productos demo para `Burger Palermo` | `/admin/productos`            |
+| `cliente`         | cliente demo `Ana Perez`             | sesion de usuario consumidor  |
+| `repartidor`      | repartidor demo `Lucia Gomez`        | sesion de repartidor          |
+| `pedido`          | pedido demo inicial                  | base para pantallas de pedido |
+| `detalle_pedido`  | 2 items demo del pedido principal    | detalle/listado de pedidos    |
+| `calificacion`    | 2 calificaciones demo                | reviews y metricas derivadas  |
 
 Cuentas actuales en `cuenta_app`:
 
@@ -93,6 +97,23 @@ debe consultar datos filtrados por la entidad asociada a la sesion:
 
 No alcanza con proteger la ruta por rol: las queries tambien deben quedar
 acotadas al id de dominio correspondiente.
+
+### Dataset demo canonico multibase
+
+El comando `pnpm db:seed` carga primero PostgreSQL y luego genera proyecciones
+derivadas para los motores no relacionales configurados. PostgreSQL es
+obligatorio porque define los ids reales del DLR; MongoDB, Redis y Cassandra se
+omiten si sus variables de entorno no estan presentes.
+
+| Motor      | Datos demo derivados                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
+| PostgreSQL | cuentas, local, productos, cliente, direccion, repartidor, pedido, detalles y calificaciones                 |
+| MongoDB    | `restaurant_catalogs`, `restaurant_profiles`, `order_documents`, `user_profiles`, `reviews`, `user_activity` |
+| Redis      | ubicacion GEO del repartidor y cache `order:status:<idPedido>`                                               |
+| Cassandra  | pedidos por cliente/local/repartidor, metricas diarias y ranking mensual                                     |
+
+La regla para mantener consistencia es no inventar ids por motor: toda
+proyeccion NoSQL guarda los ids generados o resueltos desde PostgreSQL.
 
 Justificacion teorica: segun la teoria de la materia, las bases relacionales
 aportan consistencia fuerte, transacciones, claves foraneas, SQL e indices
@@ -245,7 +266,11 @@ estado local de UI: filtros, tabs, busqueda, paginacion o toggles.
 
 ## Sincronizacion entre motores
 
-Para la demo actual, los mocks ya simulan datos alineados. Para produccion:
+Para la demo actual, el seed multibase carga datos consistentes partiendo de
+PostgreSQL. Los mocks siguen existiendo para desarrollo local sin credenciales,
+pero no deben tratarse como prueba de sincronizacion entre clouds.
+
+Flujo de sincronizacion esperado:
 
 1. PostgreSQL crea/actualiza el pedido como fuente de verdad.
 2. Redis guarda el estado vivo o cache temporal.

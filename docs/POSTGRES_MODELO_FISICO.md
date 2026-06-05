@@ -215,7 +215,10 @@ seguridad deben aplicarse sobre esta tabla y su capa de queries.
 | `getPedidos`                    | `pedido`, `detalle_pedido` |
 | `getPedidoById`                 | `pedido`, `detalle_pedido` |
 | `getPedidosByEstado`            | `pedido`, `detalle_pedido` |
+| `getPedidosByCliente`           | `pedido`, `detalle_pedido` |
+| `getPedidosByEstablecimiento`   | `pedido`, `detalle_pedido` |
 | `getRepartidoresDisponibles`    | `repartidor`               |
+| `getRepartidorById`             | `repartidor`               |
 | `getPedidosByRepartidor`        | `pedido`, `detalle_pedido` |
 | `getEstablecimientoById`        | `establecimiento`          |
 | `getProductosByEstablecimiento` | `producto`                 |
@@ -234,4 +237,4 @@ seguridad deben aplicarse sobre esta tabla y su capa de queries.
   - `repartidor` requiere `id_repartidor`;
   - `usuario` requiere `id_cliente`.
 - Cambiar `cuenta_app.contrasenia` a un hash de password y validar con comparacion segura.
-- Completar seeds de demo con `detalle_pedido` y mayor paridad con los mocks.
+- Ampliar seeds si se necesitan mas casos de uso, manteniendo PostgreSQL como fuente de ids.

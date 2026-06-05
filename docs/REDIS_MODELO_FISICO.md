@@ -48,13 +48,12 @@ Formato miembro actual:
 
 ```txt
 deliveryPersonId = string
-ejemplo mock: del_001
+formato usado por la app: del_00<id_repartidor>
+ejemplo demo: del_001
 ```
 
-Decision pendiente:
-
-- alinear `deliveryPersonId` con `repartidor.id_repartidor` numerico o mantener
-  ids externos string.
+El id numerico de PostgreSQL sigue siendo la referencia canonica. Redis usa el
+prefijo `del_00` solo como key/member operacional.
 
 TTL:
 
@@ -129,7 +128,6 @@ Estas keys no estan implementadas todavia, pero completan la arquitectura:
 
 ## Gaps fisicos
 
-- Definir formato final de ids: numerico DLR vs string externo.
 - Definir TTL para frescura de ubicacion.
 - Implementar fallback automatico desde PostgreSQL en las pantallas.
 - Definir si disponibilidad vive en PostgreSQL, Redis o ambos:

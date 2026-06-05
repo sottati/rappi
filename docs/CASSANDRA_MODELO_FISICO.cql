@@ -6,6 +6,9 @@
 -- Keyspace esperado por la app:
 --   ASTRA_DB_KEYSPACE=db_uade
 --
+-- El seed demo (`MOCK_DB=false pnpm db:seed`) inserta filas derivadas desde
+-- PostgreSQL en estas tablas. Primero crear el keyspace/tablas en Astra.
+--
 -- En Astra DB el keyspace se crea desde el panel/proveedor. Si se ejecuta en
 -- Cassandra local, crear un keyspace equivalente antes de correr estas tablas.
 

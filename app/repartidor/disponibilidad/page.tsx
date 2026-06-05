@@ -4,32 +4,27 @@ import { postgres, redis } from '@/lib/db'
 
 export default async function RepartidorDisponibilidadPage() {
   const session = await requireSession('repartidor')
-  const [repartidores, location] = await Promise.all([
-    postgres.queries.getRepartidoresDisponibles(),
+  const [repartidor, location] = await Promise.all([
+    postgres.queries.getRepartidorById(session.userId),
     redis.queries.getDeliveryLocation(`del_00${session.userId}`),
   ])
 
-  if (repartidores.error) return <ErrorState message={repartidores.error} />
+  if (repartidor.error) return <ErrorState message={repartidor.error} />
   if (location.error) return <ErrorState message={location.error} />
-
-  const repartidoresData = repartidores.data ?? []
-  const repartidor = repartidoresData.find(
-    (item) => item.idRepartidor === session.userId,
-  )
 
   return (
     <section className="rounded-md border bg-card p-5">
       <h2 className="text-xl font-semibold">Disponibilidad</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Esta pantalla queda preparada para una Server Action que actualice Redis y
-        persista estado si hace falta.
+        Esta pantalla queda preparada para una Server Action que actualice Redis
+        y persista estado si hace falta.
       </p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-md border p-4">
           <p className="text-sm text-muted-foreground">Estado actual</p>
           <p className="mt-2 text-2xl font-semibold">
-            {repartidor?.disponible ? 'Disponible' : 'No disponible'}
+            {repartidor.data?.disponible ? 'Disponible' : 'No disponible'}
           </p>
         </div>
         <div className="rounded-md border p-4">

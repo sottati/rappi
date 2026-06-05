@@ -151,6 +151,24 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 ## ADR-017: Rutas publicas de autenticacion (`/login`, `/signin`)
 
 - **Estado:** Aceptada
-- **Contexto:** Se necesita dejar la estructura de pantallas de auth antes de integrar Supabase Auth. La landing y los layouts por rol seguiran usando sesion mock hasta conectar el proveedor real.
-- **Decision:** Exponer `/login` (inicio de sesion) y `/signin` (registro / crear cuenta) como paginas publicas con formularios en Client Components sin logica de backend por ahora. Los formularios viven en `components/features/auth/` y comparten `AuthShell`.
-- **Consecuencias:** +URLs claras para la demo y el wireframe, +facil enchufar Server Actions o Supabase mas adelante. Como contra, hay que evitar mezclar estas rutas con los layouts por rol hasta definir redirecciones post-login.
+- **Contexto:** Se necesita un ingreso simple por rol para la demo y para filtrar pantallas por entidad del dominio.
+- **Decision:** Exponer `/login` como inicio de sesion funcional contra `cuenta_app` mediante Server Actions. Mantener `/signin` como pantalla publica de registro visual hasta definir alta real de cuentas.
+- **Consecuencias:** +Login suficiente para demo, +layouts protegidos por rol, +no se depende de Supabase Auth. Como contra, la seguridad de passwords queda a cargo del proyecto y debe mejorarse con hashing.
+
+---
+
+## ADR-018: `cuenta_app` como identidad interna permanente
+
+- **Estado:** Aceptada
+- **Contexto:** El proyecto necesita vincular usuarios de la app con entidades del DLR (`cliente`, `repartidor`, `establecimiento`) y el equipo decidio no implementar Supabase Auth.
+- **Decision:** Mantener `cuenta_app` en PostgreSQL como tabla permanente de identidad interna. Cada fila tiene `email`, `contrasenia`, `rol`, `nombre_visible` y una FK nullable segun rol: `id_cliente`, `id_repartidor` o `id_establecimiento`.
+- **Consecuencias:** +Modelo de permisos explicable, +queries por rol pueden usar ids del DLR, +no se agrega otro proveedor de auth. Como contra, hay que implementar hashing, validaciones por rol y controles de sesion propios.
+
+---
+
+## ADR-019: Seed demo multibase derivado desde PostgreSQL
+
+- **Estado:** Aceptada
+- **Contexto:** El proyecto usa cuatro motores y necesita datos consistentes para mostrar la demo. Si cada motor inventa ids propios, la UI no puede combinar datos de forma confiable.
+- **Decision:** `scripts/seed-test-users.ts` carga primero PostgreSQL, resuelve los ids reales del DLR y proyecta esos datos a MongoDB, Redis y Cassandra. PostgreSQL es obligatorio; los motores no relacionales se omiten si no tienen variables de entorno configuradas.
+- **Consecuencias:** +Dataset reproducible, +ids consistentes entre motores, +facil validar la demo de punta a punta. Como contra, el seed crece en responsabilidad y debe mantenerse cuando cambie el modelo.

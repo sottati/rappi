@@ -1,9 +1,10 @@
 # Gaps y roadmap
 
-Estado al relevar el repo: la base tecnica esta creada. Hay App Router por rol,
-componentes compartidos, tipos de dominio, clientes por motor, mocks y queries
-iniciales. El trabajo pendiente es cerrar integraciones reales y completar
-pantallas.
+Estado actual: la base tecnica ya consume clouds con un dataset demo multibase.
+Hay App Router por rol, componentes compartidos, tipos de dominio, clientes por
+motor, mocks, queries reales y seed canónico. El trabajo pendiente principal es
+reemplazar pantallas mock restantes, endurecer constraints/seguridad y completar
+flujos de UI.
 
 ## Gaps de documentacion cerrados
 
@@ -14,34 +15,32 @@ pantallas.
   `docs/POSTGRES_MODELO_FISICO.md`, `docs/CASSANDRA_MODELO_FISICO.cql`,
   `docs/MONGODB_MODELO_FISICO.md`, `docs/REDIS_MODELO_FISICO.md`.
 - El flujo de consumo server -> queries -> UI queda documentado como regla.
-- Se elimina la contradiccion documental de `/login`: no se crea hasta que el
-  equipo tome una decision explicita.
+- `cuenta_app` queda documentada como identidad interna permanente.
+- El dataset demo multibase queda documentado en `docs/MODELO_DATOS.md` y
+  `docs/HANDOFF.md`.
 
 ## Gaps tecnicos abiertos
 
-| Gap                                    | Impacto                                                     | Proximo paso                                                   |
-| -------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- |
-| Credenciales cloud reales no validadas | Las queries reales pueden fallar aunque los mocks funcionen | configurar `.env.local`, probar `MOCK_DB=false` por motor      |
-| Pantallas navegadas incompletas        | La sidebar apunta a rutas todavia no implementadas          | crear paginas por rol siguiendo patron existente               |
-| Auth real pendiente                    | Los filtros por usuario/rol son mock                        | integrar Supabase Auth o documentar alternativa                |
-| Seeds/datos demo por motor             | Dificil demostrar integracion real de punta a punta         | crear scripts o migraciones de seed coherentes entre motores   |
-| Modelos fisicos sin validar en cloud   | El DDL/doc puede requerir ajustes del proveedor             | ejecutar Supabase/Astra/Mongo/Redis reales con `MOCK_DB=false` |
-| Proyecciones MongoDB sin implementar   | MongoDB queda documentado pero no consultable desde la UI    | agregar mocks/queries para catalogos, perfiles y snapshots     |
-| Redis sin politica completa de TTL     | Puede haber estados vivos obsoletos                         | implementar key auxiliar de frescura para ubicacion            |
-| Tests ausentes                         | Cambios futuros pueden romper contratos de queries          | agregar tests unitarios de mappers y mocks                     |
+| Gap                                      | Impacto                                                            | Proximo paso                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Passwords en texto plano en `cuenta_app` | Riesgo si se trata como produccion                                 | guardar hash y validar con comparacion segura                      |
+| Constraints de negocio incompletas       | Datos invalidos pueden entrar por seed/manual SQL                  | agregar checks de rangos, montos positivos y FK por rol            |
+| Pantallas navegadas incompletas o mock   | Parte de la demo todavia no muestra datos reales                   | migrar rutas pendientes al patron Server Component -> query scoped |
+| Detalles de pedido por rol               | Algunas rutas `[idPedido]` siguen con mocks o autorizacion parcial | usar `getPedidoById` + check contra id de sesion                   |
+| Proyecciones MongoDB poco consumidas     | Los documentos existen pero pocas pantallas los leen               | agregar queries para catalogos, perfiles y snapshots               |
+| Redis sin frescura por ubicacion         | GEO no expira por miembro                                          | agregar key auxiliar `delivery:location:fresh:<id>`                |
+| Tests ausentes                           | Cambios futuros pueden romper contratos de queries/seed            | agregar tests unitarios de mappers y smoke tests de seed           |
+| Snapshot Drizzle `0001` faltante         | Futuras migraciones pueden duplicar `cuenta_app`                   | regenerar/commitear snapshot de Drizzle correspondiente            |
 
 ## Prioridad sugerida
 
-1. Validar modelos fisicos contra servicios cloud reales.
-2. Conectar Supabase/PostgreSQL real y validar DLR con Drizzle.
-3. Crear seeds/datos demo coherentes entre motores.
-4. Implementar proyecciones MongoDB para catalogos, perfiles, snapshots de
-   pedidos, reviews y actividad.
-5. Crear pantallas principales pendientes: pedidos admin, pedidos repartidor,
-   establecimientos usuario.
-6. Integrar Cassandra para historiales/analytics.
-7. Integrar Redis para disponibilidad/ubicacion/estado vivo.
-8. Reemplazar sesion mock por auth real si el alcance final lo requiere.
+1. Hashear `cuenta_app.contrasenia`.
+2. Agregar constraints de dominio en PostgreSQL.
+3. Migrar rutas de detalle/listados pendientes a queries reales y scoped.
+4. Consumir MongoDB en pantallas donde aporte valor documental.
+5. Usar Cassandra en analytics/historicos.
+6. Mejorar Redis con frescura/TTL operacional.
+7. Agregar tests de queries, mappers y seed.
 
 ## Criterio para pasar a desarrollo
 

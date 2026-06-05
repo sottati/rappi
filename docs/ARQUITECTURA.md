@@ -42,6 +42,7 @@ components/
 └── features/               # Componentes especificos por funcionalidad
 lib/
 ├── utils.ts                # Utilidades (cn, etc.)
+├── auth/                   # Login, sesion y proteccion por rol
 └── db/                     # Clientes y acceso a datos
     ├── index.ts            # Re-export centralizado
     ├── helpers.ts          # QueryResult, ok, fail
@@ -51,6 +52,8 @@ lib/
     └── cassandra/          # Cassandra via DataStax Astra DB
 types/
 └── domain.ts               # Tipos compartidos del dominio Rappi
+scripts/
+└── seed-test-users.ts      # Dataset demo canonico multibase
 ```
 
 ## Flujo de datos
@@ -76,7 +79,7 @@ types/
 | Motor      | Proveedor elegido                | Uso previsto                                                                                                                          |
 | ---------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | PostgreSQL | Supabase                         | DLR y consistencia transaccional: establecimientos, productos, clientes, direcciones, repartidores, pedidos, detalles, calificaciones |
-| MongoDB    | MongoDB Atlas                    | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad                               |
+| MongoDB    | MongoDB Atlas                    | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad                                |
 | Redis      | Upstash o Redis cloud compatible | Estado vivo: ubicacion de repartidores, disponibilidad rapida y cache de estado de pedido                                             |
 | Cassandra  | DataStax Astra DB                | Consultas historicas por rol, tracking, metricas diarias y rankings                                                                   |
 
@@ -100,10 +103,10 @@ El dominio relacional base sale del DLR del equipo:
 En TypeScript se usan nombres en PascalCase/camelCase (`Pedido`, `idPedido`,
 `fechaHora`) y en SQL se espera snake_case (`pedido`, `id_pedido`, `fecha_hora`).
 
-Las contrasenias aparecen en el DLR original como atributo de entidades con login,
-pero no se exponen en `types/domain.ts` ni en la UI. Cuando se implemente auth real,
-esa responsabilidad queda en Supabase Auth o en una capa especifica de autenticacion,
-no en componentes visuales.
+Las credenciales de acceso no viven en `cliente`, `repartidor` ni
+`establecimiento`. La app usa una tabla permanente `cuenta_app`, que vincula
+email/password, rol y entidad de dominio (`id_cliente`, `id_repartidor` o
+`id_establecimiento`). No se va a integrar Supabase Auth.
 
 ## Patron de integracion por motor
 
@@ -168,15 +171,21 @@ app/
 
 Estado actual:
 
-| Ruta                         | Estado                                    |
-| ---------------------------- | ----------------------------------------- |
-| `/`                          | Implementada: landing con accesos a roles |
-| `/admin`                     | Implementada: resumen                     |
-| `/admin/establecimientos`    | Implementada: listado                     |
-| `/repartidor`                | Implementada: resumen                     |
-| `/repartidor/disponibilidad` | Implementada como placeholder             |
-| `/usuario`                   | Implementada como placeholder             |
-| Resto de rutas del diagrama  | Pendientes                                |
+| Ruta                         | Estado                                                    |
+| ---------------------------- | --------------------------------------------------------- |
+| `/`                          | Implementada: landing con accesos a roles y flujo publico |
+| `/login`                     | Implementada: login contra `cuenta_app`                   |
+| `/signin`                    | Implementada visualmente; registro real pendiente         |
+| `/restaurantes`              | Implementada con contenido publico/mock                   |
+| `/carrito`                   | Implementada con contenido publico/mock                   |
+| `/admin`                     | Implementada: resumen                                     |
+| `/admin/establecimientos`    | Implementada: listado                                     |
+| `/admin/productos`           | Implementada con query scoped por establecimiento         |
+| `/admin/pedidos`             | Implementada con query scoped por establecimiento         |
+| `/repartidor`                | Implementada: resumen                                     |
+| `/repartidor/disponibilidad` | Implementada con repartidor de sesion + Redis             |
+| `/usuario`                   | Implementada con pedidos scoped por cliente               |
+| Rutas de detalle/listados    | Varias siguen con mocks o integracion parcial             |
 
 | Rol          | Alcance                                                                                     |
 | ------------ | ------------------------------------------------------------------------------------------- |
@@ -215,15 +224,28 @@ Hasta conectar los servicios cloud, se puede usar `MOCK_DB=true`.
 - Cada motor puede tener un `mock.ts` con datos tipados.
 - `queries.ts` revisa `MOCK_DB` antes de crear clientes reales.
 - La UI usa el mismo contrato que usara con datos reales.
-- Al conectar una DB, se cambia `MOCK_DB=false` o se elimina la variable local.
+- Al usar clouds reales, se cambia `MOCK_DB=false`.
+
+## Dataset demo multibase
+
+El seed canónico vive en `scripts/seed-test-users.ts`.
+
+```bash
+pnpm db:migrate
+MOCK_DB=false pnpm db:seed
+```
+
+Primero escribe PostgreSQL, resuelve los ids reales y luego proyecta esos ids a
+MongoDB, Redis y Cassandra. Esta regla evita que cada motor tenga datos
+incompatibles.
 
 ## Gaps conocidos
 
 Los gaps se documentan en `docs/GAPS.md`. Resumen:
 
-- conectar credenciales reales cloud y validar queries con `MOCK_DB=false`;
 - completar pantallas navegadas desde layouts;
-- definir seeds/datos de demo para cada motor;
-- agregar auth real cuando el equipo lo decida;
+- migrar rutas de detalle/listados que todavia usan mocks;
+- hashear passwords de `cuenta_app`;
+- agregar constraints de negocio en PostgreSQL;
 - decidir que lecturas Cassandra reemplazan o complementan lecturas PostgreSQL;
-- implementar proyecciones MongoDB enriquecidas desde datos del DLR.
+- implementar queries/pantallas para consumir mas proyecciones MongoDB.

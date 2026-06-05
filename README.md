@@ -2,9 +2,9 @@
 
 Trabajo practico de Ingenieria de Datos II. La app simula una operatoria tipo Rappi y sirve para consultar/renderizar datos repartidos entre varias bases cloud.
 
-La prioridad actual es dejar asentada la arquitectura, el modelo de datos por
-motor y el flujo de consumo para despues avanzar con pantallas e integraciones
-reales sin rediscutir decisiones base.
+La prioridad actual es mostrar una base funcional con datos reales en clouds,
+manteniendo documentado que dato vive en cada motor y como se consume desde la
+UI.
 
 ## Funcionamiento
 
@@ -28,17 +28,18 @@ No hay ruta navegable `/clientes`. El cliente existe como dato interno del usuar
 
 ## Bases de datos
 
-| Motor                       | Uso en el sistema                                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------ |
-| Supabase/PostgreSQL         | Entidades del DLR: establecimientos, productos, pedidos, clientes, repartidores, calificaciones. |
+| Motor                       | Uso en el sistema                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Supabase/PostgreSQL         | Fuente de verdad del DLR + `cuenta_app` para identidad interna.                                         |
 | MongoDB Atlas               | Proyecciones documentales: catalogos enriquecidos, perfiles, snapshots de pedidos, reviews y actividad. |
-| Redis/Upstash               | Estado vivo: repartidores disponibles, ubicacion actual, cache de estado de pedidos.             |
-| Cassandra/DataStax Astra DB | Eventos historicos de pedidos y tracking de entregas.                                            |
+| Redis/Upstash               | Estado vivo: ubicacion actual de repartidor y cache de estado de pedidos.                               |
+| Cassandra/DataStax Astra DB | Historicos, metricas y lecturas desnormalizadas por patron de consulta.                                 |
 
 El DLR define el dominio conceptual. Para la implementacion NoSQL, los datos se pueden desnormalizar segun patrones de acceso.
 
 Detalle de almacenamiento y consumo: [`docs/MODELO_DATOS.md`](docs/MODELO_DATOS.md).
 Gaps actuales y roadmap: [`docs/GAPS.md`](docs/GAPS.md).
+Guia operativa de handoff: [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 Modelos fisicos:
 
@@ -97,9 +98,11 @@ Las paginas de detalle usan ids:
 /usuario/pedidos/[idPedido]
 ```
 
-Estado actual: estan implementadas `/`, `/admin`, `/admin/establecimientos`,
-`/repartidor`, `/repartidor/disponibilidad` y `/usuario`. El resto son rutas
-planificadas para completar incrementalmente.
+Estado actual: estan implementadas las rutas publicas principales
+(`/restaurantes`, carrito, login/signin) y las bases por rol. Las rutas que ya
+consumen datos reales/scoped incluyen `/admin/productos`, `/admin/pedidos`,
+`/usuario` y `/repartidor/disponibilidad`. Algunas rutas de detalle y listados
+por rol siguen usando mocks o integraciones parciales.
 
 ## Modo mock
 
@@ -122,6 +125,26 @@ lib/db/postgres/mock.ts
 lib/db/mongodb/mock.ts
 lib/db/cassandra/mock.ts
 ```
+
+## Seed demo multibase
+
+Con credenciales cloud en `.env.local`:
+
+```bash
+pnpm db:migrate
+MOCK_DB=false pnpm db:seed
+```
+
+El seed carga primero PostgreSQL y despues proyecta datos a MongoDB, Redis y
+Cassandra. Si falta una env de algun motor no relacional, ese motor se omite.
+
+Cuentas demo:
+
+| Email                     | Rol          | Password  |
+| ------------------------- | ------------ | --------- |
+| `admin@burger.example`    | `admin`      | `test123` |
+| `lucia.gomez@example.com` | `repartidor` | `test123` |
+| `ana.perez@example.com`   | `usuario`    | `test123` |
 
 ## Comandos
 
@@ -202,6 +225,16 @@ erDiagram
     string tipo
     int puntaje
   }
+  CUENTA_APP {
+    int id_cuenta PK
+    string email
+    string contrasenia
+    string rol
+    string nombre_visible
+    int id_cliente FK "nullable"
+    int id_repartidor FK "nullable"
+    int id_establecimiento FK "nullable"
+  }
 
   ESTABLECIMIENTO ||--o{ PRODUCTO : "ofrece"
   ESTABLECIMIENTO ||--o{ PEDIDO : "gestiona"
@@ -212,11 +245,15 @@ erDiagram
   PEDIDO ||--o| CALIFICACION : "recibe"
   PRODUCTO ||--o{ DETALLE_PEDIDO : "incluido en"
   DIRECCION_ENTREGA ||--o{ PEDIDO : "recibe"
+  CLIENTE ||--o| CUENTA_APP : "autentica"
+  REPARTIDOR ||--o| CUENTA_APP : "autentica"
+  ESTABLECIMIENTO ||--o| CUENTA_APP : "autentica"
 ```
 
 ## Documentacion interna
 
 - **`AGENTS.md`**: fuente de verdad para agentes de IA y colaboradores. Reglas obligatorias, estado del repo, patrones y checklist.
+- `docs/HANDOFF.md`: como levantar, seedear y continuar el proyecto.
 - `docs/ARQUITECTURA.md`: estructura, rutas, motores y flujo de datos.
 - `docs/MODELO_DATOS.md`: que dato vive en que motor y como se consume.
 - `docs/GAPS.md`: pendientes para pasar de base documental a produccion.

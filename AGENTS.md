@@ -2,7 +2,7 @@
 
 Fuente de verdad para agentes de IA y colaboradores del repo. Cursor la carga automaticamente como reglas del workspace. Leer esto antes de tocar codigo.
 
-Documentacion complementaria: `README.md` (overview), `docs/ARQUITECTURA.md` (estructura), `docs/MODELO_DATOS.md` (reparto por motor), `docs/POSTGRES_MODELO_FISICO.md`, `docs/CASSANDRA_MODELO_FISICO.cql`, `docs/MONGODB_MODELO_FISICO.md`, `docs/REDIS_MODELO_FISICO.md`, `docs/GAPS.md` (pendientes), `docs/DECISIONES.md` (ADRs).
+Documentacion complementaria: `README.md` (overview), `docs/HANDOFF.md` (guia operativa), `docs/ARQUITECTURA.md` (estructura), `docs/MODELO_DATOS.md` (reparto por motor), `docs/POSTGRES_MODELO_FISICO.md`, `docs/CASSANDRA_MODELO_FISICO.cql`, `docs/MONGODB_MODELO_FISICO.md`, `docs/REDIS_MODELO_FISICO.md`, `docs/GAPS.md` (pendientes), `docs/DECISIONES.md` (ADRs).
 
 ## Proyecto
 
@@ -10,32 +10,35 @@ Trabajo practico obligatorio de Ingenieria de Datos II.
 
 La tematica asignada es Rappi. El repositorio esta orientado a implementar una aplicacion web que permita conectar, consultar, renderizar y mostrar datos provenientes de distintas bases de datos usadas en el trabajo practico.
 
-Objetivo inmediato: dejar clara la arquitectura, el reparto de datos y el flujo de consumo para luego pasar a produccion/desarrollo de pantallas e integraciones reales.
+Objetivo inmediato: mantener una base clara, ejecutable y explicable para consumir datos reales desde PostgreSQL, MongoDB, Redis y Cassandra, reemplazando pantallas mock de forma incremental.
 
 ## Estado actual del repo
 
 Lo que ya existe (usar como referencia, no reinventar):
 
-| Area                       | Estado                                              |
-| -------------------------- | --------------------------------------------------- |
-| `app/page.tsx`             | Landing con links a los 3 roles                     |
-| `app/admin/`               | Layout + resumen + listado de establecimientos      |
-| `app/repartidor/`          | Layout + resumen + disponibilidad (placeholder)     |
-| `app/usuario/`             | Layout + resumen (placeholder)                      |
-| `lib/db/*`                 | Clientes, queries y mocks por motor                 |
-| `lib/auth/mock-session.ts` | Sesion mock por rol (auth real pendiente)           |
-| `types/domain.ts`          | Tipos del DLR en TypeScript                         |
-| `components/shared/`       | `RoleShell`, `ErrorState`, `EmptyState`, `StatCard` |
-| `components/ui/`           | shadcn instalados (sidebar, button, input, etc.)    |
+| Area                         | Estado                                                               |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `app/page.tsx`               | Landing con links a roles y flujo publico de restaurantes/carrito    |
+| `app/admin/`                 | Layout protegido + resumen + establecimientos + productos + pedidos  |
+| `app/repartidor/`            | Layout protegido + resumen + disponibilidad + pedidos mock/parciales |
+| `app/usuario/`               | Layout protegido + resumen scoped + pedidos mock/parciales           |
+| `app/login`                  | Login funcional contra `cuenta_app` mediante Server Action           |
+| `lib/auth/*`                 | Sesion propia con cookie firmada; no se usa Supabase Auth            |
+| `lib/db/*`                   | Clientes, queries y mocks por motor                                  |
+| `scripts/seed-test-users.ts` | Seed demo multibase: Postgres canonico + proyecciones NoSQL          |
+| `types/domain.ts`            | Tipos del DLR en TypeScript                                          |
+| `components/shared/`         | `RoleShell`, `ErrorState`, `EmptyState`, `StatCard`                  |
+| `components/ui/`             | shadcn instalados (sidebar, button, input, etc.)                     |
 
-Lo que el layout ya navega pero **aun no tiene pagina** (crear siguiendo el patron existente):
+Rutas todavia pendientes o incompletas (crear siguiendo el patron existente):
 
-- `/admin/productos`, `/admin/pedidos`, `/admin/analytics`
+- `/admin/analytics`
 - `/admin/establecimientos/[idEstablecimiento]` y subrutas
-- `/repartidor/pedidos`, `/repartidor/pedidos/[idPedido]`
-- `/usuario/establecimientos`, `/usuario/pedidos`, `/usuario/direcciones` y detalles
+- completar integracion real de `/repartidor/pedidos`, `/repartidor/pedidos/[idPedido]`
+- completar integracion real de `/usuario/pedidos`, `/usuario/pedidos/[idPedido]`
+- `/usuario/establecimientos`, `/usuario/direcciones` y detalles
 
-Auth publica (sin logica aun): `/login`, `/signin` — ver ADR-017 en `docs/DECISIONES.md`. No crear `/clientes` salvo decision explicita del equipo.
+Auth publica: `/login` funciona contra `cuenta_app`; `/signin` es pantalla publica pendiente de logica real de registro. No crear `/clientes`; `Cliente` existe como dato interno del usuario consumidor.
 
 ## Referencia canonica
 
@@ -43,7 +46,7 @@ Antes de implementar una pantalla nueva, leer estos archivos:
 
 1. `app/admin/establecimientos/page.tsx` — patron minimo: query → error → empty → render
 2. `app/admin/page.tsx` — orquestacion de multiples queries con `Promise.all`
-3. `app/admin/layout.tsx` — layout por rol con `RoleShell` + `getMockSession`
+3. `app/admin/layout.tsx` — layout por rol con `RoleShell` + `requireSession`
 4. `lib/db/postgres/queries.ts` — patron de query con mock/real
 5. `types/domain.ts` — tipos compartidos del dominio
 
@@ -107,12 +110,12 @@ import { postgres, mongodb, redis, cassandra } from "@/lib/db"
 
 Respetar este reparto al agregar queries o pantallas. El DLR vive en PostgreSQL; los demas motores complementan con datos de acceso distinto.
 
-| Motor                 | Modulo             | Datos                                                                | Queries existentes                                                                                                                 |
-| --------------------- | ------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL (Supabase) | `lib/db/postgres`  | Entidades del DLR: establecimientos, pedidos, detalles, repartidores | `getEstablecimientos`, `getPedidos`, `getPedidoById`, `getPedidosByEstado`, `getRepartidoresDisponibles`, `getPedidosByRepartidor` |
-| MongoDB Atlas         | `lib/db/mongodb`   | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad | `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: catalogos/perfiles/snapshots |
-| Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido      | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`                                           |
-| Cassandra (Astra DB)  | `lib/db/cassandra` | Historicos, metricas y lecturas por patron de acceso                 | `getPedidosPorCliente`, `getPedidosPorLocal`, `getPedidosPorRepartidor`, `getMetricasGlobalesDiarias`, `getRankingLocalesPorMes`   |
+| Motor                 | Modulo             | Datos                                                                                                  | Queries existentes                                                                                                                                                                                                                         |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PostgreSQL (Supabase) | `lib/db/postgres`  | Entidades del DLR + `cuenta_app` para identidad interna                                                | `getEstablecimientos`, `getEstablecimientoById`, `getProductosByEstablecimiento`, `getPedidos`, `getPedidoById`, `getPedidosByCliente`, `getPedidosByEstablecimiento`, `getPedidosByRepartidor`, `getRepartidorById`, `authenticateCuenta` |
+| MongoDB Atlas         | `lib/db/mongodb`   | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad | `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: catalogos/perfiles/snapshots                                                                                                                                        |
+| Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido                                        | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`                                                                                                                                                   |
+| Cassandra (Astra DB)  | `lib/db/cassandra` | Historicos, metricas y lecturas por patron de acceso                                                   | `getPedidosPorCliente`, `getPedidosPorLocal`, `getPedidosPorRepartidor`, `getMetricasGlobalesDiarias`, `getRankingLocalesPorMes`                                                                                                           |
 
 Tipos del dominio relacional en `types/domain.ts` (camelCase). En SQL/Supabase usar snake_case (`id_pedido`, `fecha_hora`).
 
@@ -125,11 +128,16 @@ Modelos fisicos por motor:
 - MongoDB Atlas: `docs/MONGODB_MODELO_FISICO.md`
 - Redis/Upstash: `docs/REDIS_MODELO_FISICO.md`
 
-## Auth temporal
+## Auth interna
 
-No hay Supabase Auth integrado todavia. Cada layout de rol usa `getMockSession(role)` de `lib/auth/mock-session.ts` para obtener usuario mock (`userId`, `displayName`, `email`).
+No se va a usar Supabase Auth en este proyecto. La identidad interna vive en PostgreSQL, tabla `cuenta_app`.
 
-Al implementar pantallas filtradas por usuario, usar el `userId` de la sesion mock en el Server Component y pasarlo como parametro a la query. Cuando llegue auth real, solo cambia la fuente de sesion; las queries filtradas no deberian moverse al cliente.
+- Login: `app/login/page.tsx` + `components/features/auth/login-form.tsx` + `lib/auth/actions.ts`.
+- Sesion: cookie firmada en `lib/auth/session.ts`.
+- Proteccion de rutas: layouts de rol con `requireSession(role)`.
+- Mapeo de permisos: `cuenta_app` vincula rol con `id_establecimiento`, `id_repartidor` o `id_cliente`.
+
+Al implementar pantallas filtradas por usuario, usar el id de dominio de la sesion en el Server Component y pasarlo como parametro a la query. Nunca confiar en filtros del cliente para permisos.
 
 ## Convenciones para integraciones
 

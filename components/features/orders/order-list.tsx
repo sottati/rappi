@@ -2,10 +2,20 @@ import Link from 'next/link'
 
 import { OrderStatusBadge } from '@/components/features/orders/order-status-badge'
 import { EmptyState } from '@/components/shared/query-state'
-import { formatArs, formatPedidoFecha, type MockPedidoVista } from '@/lib/rappi'
+import { formatArs, formatPedidoFecha } from '@/lib/rappi'
+import type { EstadoPedido } from '@/types/domain'
+
+export interface OrderListItem {
+  idPedido: number
+  estado: EstadoPedido
+  fechaHora: Date
+  total: number
+  establecimientoNombre: string
+  lineas: unknown[]
+}
 
 interface OrderListProps {
-  pedidos: MockPedidoVista[]
+  pedidos: OrderListItem[]
   getHref: (idPedido: number) => string
   emptyTitle?: string
 }
@@ -32,13 +42,17 @@ export function OrderList({
               <p className="font-semibold">Pedido #{pedido.idPedido}</p>
               <OrderStatusBadge estado={pedido.estado} />
             </div>
-            <p className="text-sm text-muted-foreground">{pedido.establecimientoNombre}</p>
+            <p className="text-sm text-muted-foreground">
+              {pedido.establecimientoNombre}
+            </p>
             <p className="text-xs text-muted-foreground">
               {formatPedidoFecha(pedido.fechaHora)} · {pedido.lineas.length}{' '}
               {pedido.lineas.length === 1 ? 'producto' : 'productos'}
             </p>
           </div>
-          <p className="shrink-0 text-lg font-semibold">{formatArs(pedido.total)}</p>
+          <p className="shrink-0 text-lg font-semibold">
+            {formatArs(pedido.total)}
+          </p>
         </Link>
       ))}
     </div>

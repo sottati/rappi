@@ -11,7 +11,6 @@ erDiagram
         string direccion
         string email
         string telefono
-        string contrasenia
     }
 
     PRODUCTO {
@@ -31,7 +30,6 @@ erDiagram
         string apellido
         string email
         string telefono
-        string contrasenia
     }
 
     DIRECCION_ENTREGA {
@@ -51,7 +49,6 @@ erDiagram
         string telefono
         boolean disponible
         float coordenada_actual
-        string contrasenia
     }
 
     PEDIDO {
@@ -80,6 +77,17 @@ erDiagram
         int puntaje
     }
 
+    CUENTA_APP {
+        int id_cuenta PK
+        string email
+        string contrasenia
+        string rol
+        string nombre_visible
+        int id_cliente FK "nullable"
+        int id_repartidor FK "nullable"
+        int id_establecimiento FK "nullable"
+    }
+
     ESTABLECIMIENTO ||--o{ PRODUCTO : ofrece
     ESTABLECIMIENTO ||--o{ PEDIDO : gestiona
     CLIENTE ||--o{ DIRECCION_ENTREGA : tiene
@@ -89,20 +97,29 @@ erDiagram
     PEDIDO ||--o{ DETALLE_PEDIDO : contiene
     PEDIDO ||--o| CALIFICACION : recibe
     PRODUCTO ||--o{ DETALLE_PEDIDO : incluido_en
+    CLIENTE ||--o| CUENTA_APP : autentica
+    REPARTIDOR ||--o| CUENTA_APP : autentica
+    ESTABLECIMIENTO ||--o| CUENTA_APP : autentica
 ```
+
+Nota: `cuenta_app` es una extension fisica permanente para identidad interna de
+la aplicacion. El DLR transaccional de pedidos sigue siendo el conjunto de
+`establecimiento`, `producto`, `cliente`, `direccion_entrega`, `repartidor`,
+`pedido`, `detalle_pedido` y `calificacion`.
 
 ## Entidades
 
-| Entidad | Descripción |
-|---------|-------------|
-| `ESTABLECIMIENTO` | Comercio que publica productos y recibe pedidos |
-| `PRODUCTO` | Ítem del catálogo de un establecimiento |
-| `CLIENTE` | Usuario consumidor |
-| `DIRECCION_ENTREGA` | Direcciones asociadas a un cliente |
-| `REPARTIDOR` | Repartidor asignable a pedidos |
-| `PEDIDO` | Orden; `id_repartidor` opcional hasta asignación |
-| `DETALLE_PEDIDO` | Líneas de un pedido (producto, cantidad, precio) |
-| `CALIFICACION` | Valoración ligada a un pedido (0..1 por pedido) |
+| Entidad             | Descripción                                                  |
+| ------------------- | ------------------------------------------------------------ |
+| `ESTABLECIMIENTO`   | Comercio que publica productos y recibe pedidos              |
+| `PRODUCTO`          | Ítem del catálogo de un establecimiento                      |
+| `CLIENTE`           | Usuario consumidor                                           |
+| `DIRECCION_ENTREGA` | Direcciones asociadas a un cliente                           |
+| `REPARTIDOR`        | Repartidor asignable a pedidos                               |
+| `PEDIDO`            | Orden; `id_repartidor` opcional hasta asignación             |
+| `DETALLE_PEDIDO`    | Líneas de un pedido (producto, cantidad, precio)             |
+| `CALIFICACION`      | Valoración ligada a un pedido (0..1 por pedido)              |
+| `CUENTA_APP`        | Cuenta de acceso interna vinculada a una entidad del dominio |
 
 ## Cardinalidades (resumen)
 
@@ -112,3 +129,5 @@ erDiagram
 - Una dirección puede usarse en muchos pedidos.
 - Un pedido tiene muchos detalles; cada detalle referencia un producto.
 - Un pedido puede tener como máximo una calificación.
+- Una cuenta de app pertenece a un solo rol y apunta a una sola entidad de
+  dominio segun ese rol.

@@ -18,7 +18,13 @@ import {
   mockProductos,
   mockRepartidores,
 } from './mock'
-import { cuentaApp, establecimiento, pedido, producto, repartidor } from './schema'
+import {
+  cuentaApp,
+  establecimiento,
+  pedido,
+  producto,
+  repartidor,
+} from './schema'
 import type {
   CuentaAppSelect,
   DetallePedidoSelect,
@@ -39,7 +45,7 @@ function mapDetalle(row: DetallePedidoSelect): DetallePedido {
 }
 
 function mapPedido(
-  row: PedidoSelect & { detalles: DetallePedidoSelect[] },
+  row: PedidoSelect & { detalles: DetallePedidoSelect[] }
 ): PedidoConDetalle {
   return {
     idPedido: row.idPedido,
@@ -92,7 +98,11 @@ function mapRepartidor(row: RepartidorSelect): Repartidor {
 
 export async function getPedidos(): Promise<QueryResult<PedidoConDetalle[]>> {
   if (shouldUseMockData()) {
-    return ok([...mockPedidos].sort((a, b) => b.fechaHora.getTime() - a.fechaHora.getTime()))
+    return ok(
+      [...mockPedidos].sort(
+        (a, b) => b.fechaHora.getTime() - a.fechaHora.getTime()
+      )
+    )
   }
 
   try {
@@ -107,7 +117,7 @@ export async function getPedidos(): Promise<QueryResult<PedidoConDetalle[]>> {
 }
 
 export async function getPedidoById(
-  idPedido: number,
+  idPedido: number
 ): Promise<QueryResult<PedidoConDetalle | null>> {
   if (shouldUseMockData()) {
     return ok(mockPedidos.find((p) => p.idPedido === idPedido) ?? null)
@@ -125,7 +135,7 @@ export async function getPedidoById(
 }
 
 export async function getPedidosByEstado(
-  estado: EstadoPedido,
+  estado: EstadoPedido
 ): Promise<QueryResult<PedidoConDetalle[]>> {
   if (shouldUseMockData()) {
     return ok(mockPedidos.filter((p) => p.estado === estado))
@@ -139,11 +149,61 @@ export async function getPedidosByEstado(
     })
     return ok(rows.map(mapPedido))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch pedidos by estado')
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch pedidos by estado'
+    )
   }
 }
 
-export async function getEstablecimientos(): Promise<QueryResult<Establecimiento[]>> {
+export async function getPedidosByCliente(
+  idCliente: number
+): Promise<QueryResult<PedidoConDetalle[]>> {
+  if (shouldUseMockData()) {
+    return ok(mockPedidos.filter((p) => p.idCliente === idCliente))
+  }
+
+  try {
+    const rows = await getDrizzleDb().query.pedido.findMany({
+      with: { detalles: true },
+      where: eq(pedido.idCliente, idCliente),
+      orderBy: desc(pedido.fechaHora),
+    })
+    return ok(rows.map(mapPedido))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch pedidos by cliente'
+    )
+  }
+}
+
+export async function getPedidosByEstablecimiento(
+  idEstablecimiento: number
+): Promise<QueryResult<PedidoConDetalle[]>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockPedidos.filter((p) => p.idEstablecimiento === idEstablecimiento)
+    )
+  }
+
+  try {
+    const rows = await getDrizzleDb().query.pedido.findMany({
+      with: { detalles: true },
+      where: eq(pedido.idEstablecimiento, idEstablecimiento),
+      orderBy: desc(pedido.fechaHora),
+    })
+    return ok(rows.map(mapPedido))
+  } catch (e) {
+    return fail(
+      e instanceof Error
+        ? e.message
+        : 'Failed to fetch pedidos by establecimiento'
+    )
+  }
+}
+
+export async function getEstablecimientos(): Promise<
+  QueryResult<Establecimiento[]>
+> {
   if (shouldUseMockData()) {
     return ok(mockEstablecimientos)
   }
@@ -154,16 +214,20 @@ export async function getEstablecimientos(): Promise<QueryResult<Establecimiento
     })
     return ok(rows.map(mapEstablecimiento))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch establecimientos')
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch establecimientos'
+    )
   }
 }
 
 export async function getEstablecimientoById(
-  idEstablecimiento: number,
+  idEstablecimiento: number
 ): Promise<QueryResult<Establecimiento | null>> {
   if (shouldUseMockData()) {
     return ok(
-      mockEstablecimientos.find((item) => item.idEstablecimiento === idEstablecimiento) ?? null,
+      mockEstablecimientos.find(
+        (item) => item.idEstablecimiento === idEstablecimiento
+      ) ?? null
     )
   }
 
@@ -173,16 +237,20 @@ export async function getEstablecimientoById(
     })
     return ok(row ? mapEstablecimiento(row) : null)
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch establecimiento')
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch establecimiento'
+    )
   }
 }
 
 export async function getProductosByEstablecimiento(
-  idEstablecimiento: number,
+  idEstablecimiento: number
 ): Promise<QueryResult<Producto[]>> {
   if (shouldUseMockData()) {
     return ok(
-      mockProductos.filter((item) => item.idEstablecimiento === idEstablecimiento),
+      mockProductos.filter(
+        (item) => item.idEstablecimiento === idEstablecimiento
+      )
     )
   }
 
@@ -197,7 +265,9 @@ export async function getProductosByEstablecimiento(
   }
 }
 
-export async function getRepartidoresDisponibles(): Promise<QueryResult<Repartidor[]>> {
+export async function getRepartidoresDisponibles(): Promise<
+  QueryResult<Repartidor[]>
+> {
   if (shouldUseMockData()) {
     return ok(mockRepartidores.filter((r) => r.disponible))
   }
@@ -212,8 +282,27 @@ export async function getRepartidoresDisponibles(): Promise<QueryResult<Repartid
   }
 }
 
+export async function getRepartidorById(
+  idRepartidor: number
+): Promise<QueryResult<Repartidor | null>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockRepartidores.find((r) => r.idRepartidor === idRepartidor) ?? null
+    )
+  }
+
+  try {
+    const row = await getDrizzleDb().query.repartidor.findFirst({
+      where: eq(repartidor.idRepartidor, idRepartidor),
+    })
+    return ok(row ? mapRepartidor(row) : null)
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'Failed to fetch repartidor')
+  }
+}
+
 export async function getPedidosByRepartidor(
-  idRepartidor: number,
+  idRepartidor: number
 ): Promise<QueryResult<PedidoConDetalle[]>> {
   if (shouldUseMockData()) {
     return ok(mockPedidos.filter((p) => p.idRepartidor === idRepartidor))
@@ -227,7 +316,9 @@ export async function getPedidosByRepartidor(
     })
     return ok(rows.map(mapPedido))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch pedidos by repartidor')
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch pedidos by repartidor'
+    )
   }
 }
 
@@ -246,14 +337,15 @@ function mapCuentaApp(row: CuentaAppSelect): CuentaApp {
 
 export async function authenticateCuenta(
   email: string,
-  password: string,
+  password: string
 ): Promise<QueryResult<CuentaApp>> {
   const normalizedEmail = email.trim().toLowerCase()
 
   if (shouldUseMockData()) {
     const cuenta = mockCuentasApp.find(
       (item) =>
-        item.email.toLowerCase() === normalizedEmail && item.contrasenia === password,
+        item.email.toLowerCase() === normalizedEmail &&
+        item.contrasenia === password
     )
     if (!cuenta) return fail('Email o contraseña incorrectos.')
     return ok(cuenta)

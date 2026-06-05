@@ -10,6 +10,8 @@ Implementacion actual:
 - tipos: `lib/db/mongodb/types.ts`;
 - queries: `lib/db/mongodb/queries.ts`;
 - DB default: `rappi` (`MONGODB_DATABASE` permite cambiarla).
+- seed demo: `scripts/seed-test-users.ts` crea documentos derivados desde ids
+  reales de PostgreSQL.
 
 ## Variables
 
@@ -36,7 +38,7 @@ Reglas:
 
 ## Coleccion `restaurant_catalogs`
 
-Documento sugerido:
+Documento objetivo:
 
 ```ts
 {
@@ -262,9 +264,14 @@ Ejemplo:
 
 Queries:
 
-- `getRestaurantReviews(idEstablecimiento)`: filtro `{ idEstablecimiento }`, orden
-  `{ createdAt: -1 }`.
+- `getRestaurantReviews(restaurantId)`: implementado hoy con filtro
+  `{ restaurantId }`, donde `restaurantId = String(idEstablecimiento)`.
 - `createReview(review)`: inserta un documento.
+
+Nota: el modelo objetivo usa `idEstablecimiento`/`idCliente` numericos. Las
+queries actuales usan `restaurantId`/`userId` string por compatibilidad con el
+primer contrato de `lib/db/mongodb/types.ts`. Si se migra, actualizar tipos,
+mocks, seed y queries al mismo tiempo.
 
 Indices recomendados:
 
@@ -282,7 +289,13 @@ db.createCollection("reviews", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["idEstablecimiento", "idCliente", "rating", "comment", "createdAt"],
+      required: [
+        "idEstablecimiento",
+        "idCliente",
+        "rating",
+        "comment",
+        "createdAt",
+      ],
       properties: {
         idEstablecimiento: { bsonType: "int" },
         idPedido: { bsonType: "int" },
@@ -329,8 +342,8 @@ Ejemplo:
 
 Queries:
 
-- `getUserActivity(idCliente, limit)`: filtro `{ idCliente }`, orden
-  `{ createdAt: -1 }`, limite default `20`.
+- `getUserActivity(userId, limit)`: implementado hoy con filtro `{ userId }`,
+  donde `userId = String(idCliente)`.
 
 Indices recomendados:
 
@@ -389,7 +402,8 @@ db.user_activity.createIndex({ action: 1, createdAt: -1 })
 
 - Implementar queries/mocks para `restaurant_catalogs`, `restaurant_profiles`,
   `order_documents` y `user_profiles`.
-- Definir proceso de sincronizacion desde PostgreSQL hacia proyecciones MongoDB.
+- Unificar naming de ids en `reviews` y `user_activity` si se abandona
+  `restaurantId`/`userId` string.
 - Definir si el snapshot de `order_documents` se actualiza en cada cambio de
   estado o queda fijo como comprobante inicial.
 - Agregar query de reviews por usuario si se muestra perfil/historial.
