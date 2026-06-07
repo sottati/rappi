@@ -27,7 +27,7 @@ flujos de UI.
 | Constraints de negocio incompletas       | Datos invalidos pueden entrar por seed/manual SQL                  | agregar checks de rangos, montos positivos y FK por rol            |
 | Pantallas navegadas incompletas o mock   | Parte de la demo todavia no muestra datos reales                   | migrar rutas pendientes al patron Server Component -> query scoped |
 | Detalles de pedido por rol               | Algunas rutas `[idPedido]` siguen con mocks o autorizacion parcial | usar `getPedidoById` + check contra id de sesion                   |
-| Proyecciones MongoDB poco consumidas     | Los documentos existen pero pocas pantallas los leen               | agregar queries para catalogos, perfiles y snapshots               |
+| Documentos MongoDB poco consumidos       | Los documentos existen pero pocas pantallas los leen               | agregar queries para perfiles, documentos de pedido y usuario      |
 | Redis sin frescura por ubicacion         | GEO no expira por miembro                                          | agregar key auxiliar `delivery:location:fresh:<id>`                |
 | Tests ausentes                           | Cambios futuros pueden romper contratos de queries/seed            | agregar tests unitarios de mappers y smoke tests de seed           |
 | Snapshot Drizzle `0001` faltante         | Futuras migraciones pueden duplicar `cuenta_app`                   | regenerar/commitear snapshot de Drizzle correspondiente            |

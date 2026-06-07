@@ -11,7 +11,9 @@ La app ya tiene:
   `/usuario`.
 - Login interno funcional contra PostgreSQL, tabla `cuenta_app`.
 - Sesion propia con cookie firmada (`lib/auth/session.ts`).
-- PostgreSQL como fuente de verdad del DLR.
+- PostgreSQL como fuente de verdad relacional/transaccional.
+- MongoDB como fuente de verdad documental para el catalogo publico y perfiles
+  flexibles.
 - Seed demo multibase ya probado contra clouds:
   - PostgreSQL/Supabase;
   - MongoDB Atlas;
@@ -60,8 +62,9 @@ No commitear `.env.local`.
 
 ## Como cargar datos demo
 
-PostgreSQL define los ids reales. Los demas motores guardan proyecciones
-derivadas con esos ids.
+Cada motor carga los datos que le corresponden por responsabilidad. Cuando un
+dato necesita cruzarse entre motores, se usan ids compartidos
+(`idEstablecimiento`, `idCliente`, `idPedido`, etc.).
 
 ```bash
 pnpm db:migrate
@@ -75,7 +78,7 @@ docs/CASSANDRA_MODELO_FISICO.cql
 ```
 
 El seed es idempotente para el dataset demo: se puede volver a correr para
-reparar cuentas y recrear proyecciones.
+reparar cuentas y recrear documentos/catalogos demo.
 
 ## Cuentas demo
 
@@ -143,5 +146,5 @@ MOCK_DB=false pnpm db:seed
 - Faltan constraints de negocio en PostgreSQL: rangos, montos positivos y
   checks por rol en `cuenta_app`.
 - Algunas rutas de detalle siguen usando mocks o integraciones parciales.
-- MongoDB tiene proyecciones cargadas, pero no todas tienen queries/pantallas
-  que las consuman todavia.
+- MongoDB tiene documentos cargados, pero no todos tienen queries/pantallas que
+  los consuman todavia.

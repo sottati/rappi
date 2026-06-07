@@ -6,19 +6,19 @@ ubicar cada dato segun consistencia, forma de consulta y frecuencia de escritura
 
 ## Resumen
 
-| Motor               | Rol en la arquitectura                 | Motivo                                                                            |
-| ------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
-| PostgreSQL/Supabase | Fuente de verdad relacional            | Integridad, claves foraneas, transacciones y DLR                                  |
-| MongoDB Atlas       | Proyecciones documentales enriquecidas | Catalogos, perfiles, snapshots y reviews con estructura flexible derivada del DLR |
-| Redis/Upstash       | Estado vivo y cache                    | Baja latencia, TTL y ubicaciones/estados temporales                               |
-| Cassandra/Astra DB  | Historico y analitica por consulta     | Alta escritura, datos append-only y tablas modeladas por query                    |
+| Motor               | Rol en la arquitectura        | Motivo                                                                 |
+| ------------------- | ----------------------------- | ---------------------------------------------------------------------- |
+| PostgreSQL/Supabase | Fuente de verdad relacional   | Integridad, claves foraneas, transacciones y entidades del pedido      |
+| MongoDB Atlas       | Fuente de verdad documental   | Catalogos, perfiles, reviews y documentos con estructura flexible      |
+| Redis/Upstash       | Estado vivo y cache           | Baja latencia, TTL y ubicaciones/estados temporales                    |
+| Cassandra/Astra DB  | Historico y analitica por query | Alta escritura, datos append-only y tablas modeladas por consulta    |
 
 ## PostgreSQL/Supabase
 
-Fuente de verdad para el DLR:
+Fuente de verdad para el nucleo relacional/transaccional:
 
 - `establecimiento`
-- `producto`
+- `producto` como referencia transaccional/administrativa cuando haga falta
 - `cliente`
 - `direccion_entrega`
 - `repartidor`
@@ -49,7 +49,8 @@ Consultas actuales:
 
 - `getEstablecimientos`
 - `getEstablecimientoById`
-- `getProductosByEstablecimiento`
+- `getProductosByEstablecimiento` (uso administrativo o compatibilidad; el
+  catalogo publico vive en MongoDB)
 - `getPedidos`
 - `getPedidoById`
 - `getPedidosByEstado`
@@ -60,8 +61,9 @@ Consultas actuales:
 - `getPedidosByRepartidor`
 - `authenticateCuenta`
 
-Regla: si el dato necesita integridad referencial o participa en el flujo
-transaccional de un pedido, vive primero aca.
+Regla: si el dato necesita integridad referencial fuerte o participa en la
+creacion/estado de un pedido, vive aca. Los datos comerciales/documentales del
+catalogo publico no se modelan primero en PostgreSQL: viven en MongoDB.
 
 ### Estado actual de datos cargados
 
@@ -72,7 +74,7 @@ pantallas mock:
 | ----------------- | ------------------------------------ | ----------------------------- |
 | `cuenta_app`      | 3 cuentas cargadas                   | login interno por rol         |
 | `establecimiento` | seed demo con locales iniciales      | catalogo, admin y usuario     |
-| `producto`        | productos demo para `Burger Palermo` | `/admin/productos`            |
+| `producto`        | referencias transaccionales demo     | admin/compatibilidad          |
 | `cliente`         | cliente demo `Ana Perez`             | sesion de usuario consumidor  |
 | `repartidor`      | repartidor demo `Lucia Gomez`        | sesion de repartidor          |
 | `pedido`          | pedido demo inicial                  | base para pantallas de pedido |
@@ -100,35 +102,40 @@ acotadas al id de dominio correspondiente.
 
 ### Dataset demo canonico multibase
 
-El comando `pnpm db:seed` carga primero PostgreSQL y luego genera proyecciones
-derivadas para los motores no relacionales configurados. PostgreSQL es
-obligatorio porque define los ids reales del DLR; MongoDB, Redis y Cassandra se
-omiten si sus variables de entorno no estan presentes.
+El comando `pnpm db:seed` carga datos demo en cada motor segun su
+responsabilidad. PostgreSQL conserva las entidades relacionales necesarias para
+identidad, permisos y pedidos; MongoDB conserva el catalogo/documentos
+flexibles; Redis y Cassandra se omiten si sus variables de entorno no estan
+presentes.
 
-| Motor      | Datos demo derivados                                                                                         |
+| Motor      | Datos demo                                                                                                   |
 | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| PostgreSQL | cuentas, local, productos, cliente, direccion, repartidor, pedido, detalles y calificaciones                 |
+| PostgreSQL | cuentas, locales, cliente, direccion, repartidor, pedido, detalles y calificaciones                          |
 | MongoDB    | `restaurant_catalogs`, `restaurant_profiles`, `order_documents`, `user_profiles`, `reviews`, `user_activity` |
 | Redis      | ubicacion GEO del repartidor y cache `order:status:<idPedido>`                                               |
 | Cassandra  | pedidos por cliente/local/repartidor, metricas diarias y ranking mensual                                     |
 
-La regla para mantener consistencia es no inventar ids por motor: toda
-proyeccion NoSQL guarda los ids generados o resueltos desde PostgreSQL.
+La regla de vinculacion es no inventar identificadores incompatibles entre
+motores. Cuando un documento necesita referenciar una entidad relacional, guarda
+el id de esa entidad (`idEstablecimiento`, `idCliente`, `idPedido`, etc.). Eso no
+convierte al documento en una proyeccion: solo permite relacionar datos entre
+bases cuando la UI o el flujo de negocio lo necesita.
 
 Justificacion teorica: segun la teoria de la materia, las bases relacionales
 aportan consistencia fuerte, transacciones, claves foraneas, SQL e indices
 secundarios. Por eso PostgreSQL conserva el nucleo ACID del dominio: un pedido
-no deberia apuntar a un cliente, direccion, producto, establecimiento o
-repartidor inexistente. Tambien se mantiene aca el calculo economico minimo
+no deberia apuntar a un cliente, direccion, establecimiento o repartidor
+inexistente. Tambien se mantiene aca el calculo economico minimo del pedido
 (`detalle_pedido.precio_unitario`, cantidades y `pedido.total`), porque forma
 parte de la trazabilidad transaccional.
 
 ## MongoDB Atlas
 
-Guarda documentos flexibles y proyecciones enriquecidas vinculadas al dominio
-relacional por ids externos. No reemplaza el DLR ni valida la operatoria
-transaccional; materializa lecturas donde conviene embebido, snapshot y metadata
-variable.
+Guarda documentos flexibles donde la estructura natural es anidada o variable.
+MongoDB es fuente de verdad para el catalogo publico, perfiles documentales,
+reviews enriquecidas y actividad flexible. Se vincula con entidades
+relacionales mediante ids externos, pero esos documentos no son simples copias
+de PostgreSQL.
 
 Modelo fisico: `docs/MONGODB_MODELO_FISICO.md`.
 
@@ -147,26 +154,28 @@ Uso desde codigo:
 
 - modulo: `lib/db/mongodb`;
 - cliente: `lib/db/mongodb/client.ts`;
-- queries actuales: `getRestaurantReviews`, `createReview`, `getUserActivity`;
-- queries sugeridas: `getRestaurantCatalog`, `getOrderDocument`,
-  `getUserProfile`, `getRestaurantProfile`.
+- queries actuales: `getRestaurantCatalog`, `getRestaurantReviews`,
+  `createReview`, `getUserActivity`;
+- queries sugeridas: `getOrderDocument`, `getUserProfile`,
+  `getRestaurantProfile`.
 
-Regla: usar MongoDB cuando el shape del documento pueda evolucionar, cuando la
-lectura necesite varios datos embebidos del DLR o cuando no convenga forzar una
-tabla relacional para metadata variable. Los ids del DLR se guardan como
-referencias (`idPedido`, `idCliente`, `idEstablecimiento`, etc.) y PostgreSQL
-sigue siendo la fuente de verdad para integridad, precios transaccionales,
-estado vigente y relaciones obligatorias.
+Regla: usar MongoDB cuando el shape del dato pueda evolucionar, cuando se lea
+naturalmente como documento completo o cuando no convenga forzar tablas
+relacionales para arrays, metadata variable u objetos embebidos. En particular,
+`restaurant_catalogs` es la fuente de verdad del catalogo publico: categorias,
+productos visibles, opciones, tags, fotos y disponibilidad comercial. PostgreSQL
+no redefine ese catalogo; solo mantiene lo necesario para el flujo
+transaccional.
 
 Justificacion teorica: las clases de bases documentales destacan documentos
 JSON/BSON con esquema flexible, estructuras anidadas, campos variables y
-modelado segun patrones de lectura. Por eso MongoDB recibe catalogos
-enriquecidos, perfiles, snapshots de pedido, reviews y actividad: son datos que
+modelado segun patrones de lectura. Por eso MongoDB conserva catalogos
+enriquecidos, perfiles, documentos de pedido, reviews y actividad: son datos que
 se leen naturalmente como documentos completos, pueden embeder arreglos u
 objetos y pueden evolucionar sin migraciones relacionales. La teoria tambien
 marca que se debe decidir entre embebido y enlazado; aca se embeben datos que se
-leen juntos y se enlazan por ids del DLR cuando se necesita preservar la verdad
-transaccional en PostgreSQL.
+leen juntos y se enlaza por ids externos cuando hay que relacionar el documento
+con pedidos, usuarios o establecimientos.
 
 ## Redis/Upstash
 
@@ -257,7 +266,7 @@ Si una pantalla necesita combinar motores, el Server Component orquesta:
 admin/analytics
   -> postgres: establecimientos base
   -> cassandra: metricas/ranking
-  -> mongodb: catalogos/perfiles/reviews/snapshots si aplica
+  -> mongodb: catalogos/perfiles/reviews/documentos si aplica
   -> redis: estado vivo si aplica
 ```
 
@@ -266,17 +275,18 @@ estado local de UI: filtros, tabs, busqueda, paginacion o toggles.
 
 ## Sincronizacion entre motores
 
-Para la demo actual, el seed multibase carga datos consistentes partiendo de
-PostgreSQL. Los mocks siguen existiendo para desarrollo local sin credenciales,
-pero no deben tratarse como prueba de sincronizacion entre clouds.
+Para la demo actual, el seed multibase carga datos consistentes entre motores,
+pero cada motor mantiene los datos que le corresponden por responsabilidad. Los
+mocks siguen existiendo para desarrollo local sin credenciales, pero no deben
+tratarse como prueba de sincronizacion entre clouds.
 
-Flujo de sincronizacion esperado:
+Flujo de coordinacion esperado:
 
-1. PostgreSQL crea/actualiza el pedido como fuente de verdad.
-2. Redis guarda el estado vivo o cache temporal.
-3. Cassandra recibe eventos/historico para consultas por rol y metricas.
-4. MongoDB materializa documentos enriquecidos asociados a ids del dominio:
-   catalogos, perfiles, snapshots de pedido, reviews y actividad.
+1. MongoDB mantiene el catalogo publico y los documentos flexibles.
+2. Al crear un pedido, la app toma los items elegidos del catalogo MongoDB y
+   persiste en PostgreSQL el pedido transaccional con sus importes de cierre.
+3. Redis guarda estado vivo o cache temporal.
+4. Cassandra recibe eventos/historico para consultas por rol y metricas.
 
 La sincronizacion puede implementarse luego con Server Actions, workers,
 webhooks o jobs. Esa decision queda fuera del alcance inicial de pantallas.

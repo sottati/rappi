@@ -21,8 +21,8 @@ La aplicacion no busca replicar todo Rappi. Busca demostrar, con una interfaz
 simple, como una operatoria tipo delivery puede repartir sus datos entre motores
 distintos segun el patron de acceso:
 
-- datos transaccionales y entidades base en PostgreSQL;
-- proyecciones documentales enriquecidas en MongoDB;
+- datos transaccionales y entidades relacionales en PostgreSQL;
+- catalogos y documentos flexibles en MongoDB;
 - estado vivo y cache en Redis;
 - historico, tracking y analiticas append-oriented en Cassandra/Astra.
 
@@ -78,8 +78,8 @@ scripts/
 
 | Motor      | Proveedor elegido                | Uso previsto                                                                                                                          |
 | ---------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL | Supabase                         | DLR y consistencia transaccional: establecimientos, productos, clientes, direcciones, repartidores, pedidos, detalles, calificaciones |
-| MongoDB    | MongoDB Atlas                    | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad                                |
+| PostgreSQL | Supabase                         | Consistencia relacional/transaccional: establecimientos, clientes, direcciones, repartidores, pedidos, detalles, calificaciones       |
+| MongoDB    | MongoDB Atlas                    | Fuente documental: catalogos publicos, perfiles flexibles, documentos de pedidos, reviews y actividad                                |
 | Redis      | Upstash o Redis cloud compatible | Estado vivo: ubicacion de repartidores, disponibilidad rapida y cache de estado de pedido                                             |
 | Cassandra  | DataStax Astra DB                | Consultas historicas por rol, tracking, metricas diarias y rankings                                                                   |
 
@@ -92,7 +92,7 @@ El dominio relacional base sale del DLR del equipo:
 | Tabla               | Responsabilidad                                                               |
 | ------------------- | ----------------------------------------------------------------------------- |
 | `ESTABLECIMIENTO`   | Comercios/restaurantes que ofrecen productos                                  |
-| `PRODUCTO`          | Productos ofrecidos por cada establecimiento                                  |
+| `PRODUCTO`          | Referencia transaccional/administrativa; el catalogo publico vive en MongoDB  |
 | `CLIENTE`           | Usuarios compradores                                                          |
 | `DIRECCION_ENTREGA` | Direcciones asociadas a clientes                                              |
 | `REPARTIDOR`        | Personas que entregan pedidos                                                 |
@@ -248,4 +248,4 @@ Los gaps se documentan en `docs/GAPS.md`. Resumen:
 - hashear passwords de `cuenta_app`;
 - agregar constraints de negocio en PostgreSQL;
 - decidir que lecturas Cassandra reemplazan o complementan lecturas PostgreSQL;
-- implementar queries/pantallas para consumir mas proyecciones MongoDB.
+- implementar queries/pantallas para consumir mas documentos MongoDB.

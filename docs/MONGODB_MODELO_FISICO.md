@@ -1,8 +1,10 @@
 # MongoDB Atlas - modelo fisico
 
-MongoDB guarda documentos flexibles y proyecciones enriquecidas del dominio
-Rappi. No es la fuente de verdad del DLR; usa ids de PostgreSQL para vincular
-documentos con entidades transaccionales y optimizar lecturas embebidas.
+MongoDB guarda documentos flexibles del dominio Rappi y es fuente de verdad para
+los datos que se modelan naturalmente como documentos: catalogos enriquecidos,
+perfiles, reviews, actividad y documentos de pedido con estructura variable. Usa
+ids compartidos para vincularse con entidades transaccionales, pero el catalogo
+publico no es una copia secundaria de PostgreSQL.
 
 Implementacion actual:
 
@@ -10,8 +12,8 @@ Implementacion actual:
 - tipos: `lib/db/mongodb/types.ts`;
 - queries: `lib/db/mongodb/queries.ts`;
 - DB default: `rappi` (`MONGODB_DATABASE` permite cambiarla).
-- seed demo: `scripts/seed-test-users.ts` crea documentos derivados desde ids
-  reales de PostgreSQL.
+- seed demo: `scripts/seed-test-users.ts` crea documentos MongoDB y usa ids
+  compartidos para vincularlos con establecimientos, usuarios y pedidos.
 
 ## Variables
 
@@ -22,19 +24,23 @@ MONGODB_DATABASE=rappi
 
 ## Criterio de modelado
 
-PostgreSQL conserva la integridad del DLR: pedidos, detalles, precios
-transaccionales, estados vigentes, clientes, direcciones y relaciones. MongoDB
-materializa documentos derivados cuando el dato se consulta mejor embebido o
-cuando el shape puede cambiar sin migraciones relacionales.
+PostgreSQL conserva la integridad transaccional: pedidos, detalles, importes de
+cierre, estados vigentes, clientes, direcciones y relaciones obligatorias.
+MongoDB conserva los datos documentales cuya forma cambia con mayor frecuencia o
+se consulta como documento completo.
 
 Reglas:
 
 - usar ids del DLR como referencias (`idPedido`, `idCliente`,
   `idEstablecimiento`, `idProducto`, `idRepartidor`);
-- duplicar nombres, fotos, direcciones y precios solo como snapshot de lectura;
+- `restaurant_catalogs` es la fuente de verdad del catalogo publico:
+  categorias, productos visibles, opciones, tags, fotos y disponibilidad
+  comercial;
+- en documentos historicos, nombres, direcciones e importes pueden guardarse
+  como snapshot del momento;
 - no validar integridad transaccional desde MongoDB;
-- regenerar o actualizar documentos desde PostgreSQL mediante jobs, webhooks,
-  Server Actions o seeds de demo.
+- coordinar escrituras con PostgreSQL mediante Server Actions, jobs, webhooks o
+  seeds de demo cuando un flujo toque mas de un motor.
 
 ## Coleccion `restaurant_catalogs`
 
@@ -74,7 +80,7 @@ Uso:
   `producto`;
 - enriquecimiento flexible: categorias, tags, opciones, destacados o metadata
   visual;
-- lectura para `/usuario/establecimientos/[idEstablecimiento]` y pantallas de
+- lectura para `/restaurantes/[idEstablecimiento]` y pantallas de
   productos.
 
 Indices recomendados:
@@ -168,7 +174,7 @@ Documento sugerido:
 Uso:
 
 - comprobante/documento de pedido para detalle de usuario, admin o repartidor;
-- snapshot historico de nombres, direccion e items sin depender de joins;
+- snapshot historico de nombres, direccion e items del momento del pedido;
 - campos variables como instrucciones, canal, cupones, notas o preferencias.
 
 Importante: `pedido.estado` vigente vive en PostgreSQL y puede cachearse en
@@ -400,8 +406,8 @@ db.user_activity.createIndex({ action: 1, createdAt: -1 })
 
 ## Gaps fisicos
 
-- Implementar queries/mocks para `restaurant_catalogs`, `restaurant_profiles`,
-  `order_documents` y `user_profiles`.
+- Implementar queries/mocks para `restaurant_profiles`, `order_documents` y
+  `user_profiles`.
 - Unificar naming de ids en `reviews` y `user_activity` si se abandona
   `restaurantId`/`userId` string.
 - Definir si el snapshot de `order_documents` se actualiza en cada cambio de

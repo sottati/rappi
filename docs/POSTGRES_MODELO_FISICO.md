@@ -1,12 +1,13 @@
 # PostgreSQL/Supabase - modelo fisico
 
-PostgreSQL es la fuente de verdad del DLR. Aca viven las entidades
-transaccionales y las relaciones que necesitan integridad referencial.
+PostgreSQL es la fuente de verdad relacional/transaccional. Aca viven las
+entidades y relaciones que necesitan integridad referencial fuerte, en especial
+el flujo de pedidos y cuentas internas.
 
-MongoDB puede materializar proyecciones documentales derivadas de estas tablas
-para catalogos enriquecidos, perfiles flexibles, snapshots de pedidos, reviews y
-actividad. Esas copias no reemplazan las constraints, claves foraneas ni el
-estado vigente mantenido en PostgreSQL.
+MongoDB es fuente de verdad para el catalogo publico y otros documentos
+flexibles. PostgreSQL no reemplaza ese catalogo: conserva solo los datos
+relacionales necesarios para operar pedidos, permisos, estados e importes
+transaccionales.
 
 Implementacion actual:
 
@@ -53,7 +54,8 @@ CREATE TYPE app_rol AS ENUM (
 | `email`              | `text`   | not null, unique |
 | `telefono`           | `text`   | not null         |
 
-Uso: base de locales visibles por admin/usuario; FK de `producto` y `pedido`.
+Uso: base relacional de locales visibles por admin/usuario; FK de `producto` y
+`pedido`. El contenido comercial enriquecido del local vive en MongoDB.
 
 ### producto
 
@@ -68,8 +70,10 @@ Uso: base de locales visibles por admin/usuario; FK de `producto` y `pedido`.
 | `disponible`           | `boolean`       | not null, default `true`       |
 | `foto`                 | `text`          | not null, default `''`         |
 
-Uso: catalogo base de cada establecimiento; precio vigente para armar pedidos;
-FK de `detalle_pedido`.
+Uso: referencia relacional/transaccional de producto cuando se necesita FK o
+compatibilidad con pantallas administrativas existentes. El catalogo publico
+enriquecido, con categorias, opciones, tags, fotos y disponibilidad comercial,
+vive en MongoDB (`restaurant_catalogs`).
 
 ### cliente
 

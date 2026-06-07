@@ -103,12 +103,12 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 
 ---
 
-## ADR-012: PostgreSQL como fuente de verdad del DLR
+## ADR-012: PostgreSQL como fuente de verdad relacional/transaccional
 
 - **Estado:** Aceptada
-- **Contexto:** El TPO necesita mostrar varias bases, pero el dominio base de Rappi ya esta definido como DLR con entidades y relaciones fuertes.
-- **Decision:** PostgreSQL/Supabase mantiene la fuente de verdad relacional: establecimientos, productos, clientes, direcciones, repartidores, pedidos, detalles y calificaciones. Los motores NoSQL pueden duplicar, enriquecer o materializar documentos derivados, pero no reemplazan la integridad transaccional del DLR.
-- **Consecuencias:** +Consistencia clara, +facil de explicar en la defensa, +queries principales tipadas con Drizzle. Como contra, algunos datos se duplican en Cassandra/MongoDB y requieren sincronizacion desde la fuente transaccional.
+- **Contexto:** El TPO necesita mostrar varias bases elegidas segun el tipo de dato. PostgreSQL sigue siendo el mejor motor para entidades con relaciones fuertes, constraints y transacciones.
+- **Decision:** PostgreSQL/Supabase mantiene la fuente de verdad relacional/transaccional: establecimientos, clientes, direcciones, repartidores, pedidos, detalles, calificaciones y cuentas internas. Los datos documentales del catalogo publico no se modelan primero aca; viven en MongoDB.
+- **Consecuencias:** +Consistencia clara para pedidos y permisos, +facil de explicar en la defensa, +queries transaccionales tipadas con Drizzle. Como contra, los flujos que cruzan catalogo y pedido deben coordinar MongoDB con PostgreSQL.
 
 ---
 
@@ -117,16 +117,16 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Estado:** Aceptada
 - **Contexto:** Cassandra no esta pensada para joins ni consultas ad hoc como PostgreSQL. Conviene partir de las preguntas que la app necesita responder.
 - **Decision:** Las tablas Cassandra se modelan por patron de acceso: pedidos por cliente, pedidos por local, pedidos por repartidor, metricas diarias, calificaciones y rankings. Se acepta duplicar datos descriptivos como nombres o totales para evitar joins.
-- **Consecuencias:** +Lecturas rapidas y explicables, +muestra correctamente el criterio NoSQL, -requiere sincronizar datos derivados desde la fuente transaccional.
+- **Consecuencias:** +Lecturas rapidas y explicables, +muestra correctamente el criterio NoSQL, -requiere coordinar la escritura de datos historicos/denormalizados.
 
 ---
 
-## ADR-014: MongoDB como capa documental enriquecida del DLR
+## ADR-014: MongoDB como fuente documental del catalogo
 
 - **Estado:** Aceptada
-- **Contexto:** La materia prioriza bases NoSQL y el reparto anterior dejaba a MongoDB limitado a reviews y actividad. Al mismo tiempo, el DLR consolidado necesita seguir siendo la base transaccional para preservar claves, relaciones y consistencia.
-- **Decision:** MongoDB no reemplaza el DLR, pero materializa proyecciones documentales enriquecidas derivadas de PostgreSQL: catalogos de establecimientos con productos embebidos, perfiles flexibles de locales, snapshots documentales de pedidos, perfiles/preferencias de usuario, reviews enriquecidas y actividad. Los documentos guardan ids del DLR (`idPedido`, `idCliente`, `idEstablecimiento`, etc.) y pueden duplicar nombres, fotos, direcciones o precios como snapshot de lectura.
-- **Consecuencias:** +MongoDB tiene un rol mas fuerte y defendible para la entrega, +muestra modelado documental real con datos embebidos, +evita joins en lecturas de catalogo/detalle. Como contra, aparece sincronizacion entre PostgreSQL y MongoDB; hay que explicar que los documentos son derivados y que la verdad transaccional sigue en PostgreSQL.
+- **Contexto:** La materia prioriza elegir la base adecuada para cada dato. El catalogo de un local se lee naturalmente como documento completo: categorias, productos embebidos, tags, opciones, fotos y metadata visual.
+- **Decision:** MongoDB es fuente de verdad para `restaurant_catalogs`, `restaurant_profiles`, reviews enriquecidas, actividad y documentos flexibles. Los documentos guardan ids compartidos (`idPedido`, `idCliente`, `idEstablecimiento`, etc.) para vincularse con flujos relacionales, pero el catalogo publico no es una proyeccion subordinada de PostgreSQL.
+- **Consecuencias:** +MongoDB tiene un rol fuerte y defendible para la entrega, +muestra modelado documental real con datos embebidos, +evita joins en lecturas de catalogo/detalle. Como contra, los pedidos deben copiar al cierre los importes/items necesarios para mantener trazabilidad transaccional en PostgreSQL.
 
 ---
 
@@ -166,11 +166,11 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 
 ---
 
-## ADR-019: Seed demo multibase derivado desde PostgreSQL
+## ADR-019: Seed demo multibase con ids compartidos
 
 - **Estado:** Aceptada
 - **Contexto:** El proyecto usa cuatro motores y necesita datos consistentes para mostrar la demo. Si cada motor inventa ids propios, la UI no puede combinar datos de forma confiable.
-- **Decision:** `scripts/seed-test-users.ts` carga primero PostgreSQL, resuelve los ids reales del DLR y proyecta esos datos a MongoDB, Redis y Cassandra. PostgreSQL es obligatorio; los motores no relacionales se omiten si no tienen variables de entorno configuradas.
+- **Decision:** `scripts/seed-test-users.ts` carga datos en cada motor segun su responsabilidad y reutiliza ids compartidos para vincular documentos, pedidos y metricas. PostgreSQL conserva las entidades transaccionales; MongoDB conserva el catalogo y documentos flexibles. Los motores no relacionales se omiten si no tienen variables de entorno configuradas.
 - **Consecuencias:** +Dataset reproducible, +ids consistentes entre motores, +facil validar la demo de punta a punta. Como contra, el seed crece en responsabilidad y debe mantenerse cuando cambie el modelo.
 
 ---

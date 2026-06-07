@@ -1,5 +1,8 @@
 'use client'
 
+// Muestra un producto en el catálogo de un establecimiento
+// Recibe los datos del producto via props
+
 import { Add01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'

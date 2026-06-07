@@ -25,7 +25,7 @@ Lo que ya existe (usar como referencia, no reinventar):
 | `app/login`                  | Login funcional contra `cuenta_app` mediante Server Action           |
 | `lib/auth/*`                 | Sesion propia con cookie firmada; no se usa Supabase Auth            |
 | `lib/db/*`                   | Clientes, queries y mocks por motor                                  |
-| `scripts/seed-test-users.ts` | Seed demo multibase: Postgres canonico + proyecciones NoSQL          |
+| `scripts/seed-test-users.ts` | Seed demo multibase con ids compartidos por motor                    |
 | `types/domain.ts`            | Tipos del DLR en TypeScript                                          |
 | `components/shared/`         | `RoleShell`, `ErrorState`, `EmptyState`, `StatCard`                  |
 | `components/ui/`             | shadcn instalados (sidebar, button, input, etc.)                     |
@@ -91,7 +91,7 @@ El proyecto debe quedar preparado para integrar 4 sistemas de datos:
 
 - PostgreSQL via Supabase como base relacional.
 - Redis via Upstash o Redis cloud compatible para cache, estados temporales y tracking rapido.
-- MongoDB Atlas para proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad.
+- MongoDB Atlas para datos documentales flexibles: catalogos publicos, perfiles, documentos de pedido, reviews y actividad.
 - Cassandra via DataStax Astra DB para eventos, tracking historico o datos de alta escritura.
 
 Las conexiones seran contra servicios cloud de bases de datos. No hardcodear credenciales, URLs privadas, tokens ni passwords.
@@ -108,12 +108,12 @@ import { postgres, mongodb, redis, cassandra } from "@/lib/db"
 
 ## Reparto de datos por motor
 
-Respetar este reparto al agregar queries o pantallas. El DLR vive en PostgreSQL; los demas motores complementan con datos de acceso distinto.
+Respetar este reparto al agregar queries o pantallas. Cada motor conserva la fuente de verdad del tipo de dato que mejor modela; cuando una pantalla combina motores, se vinculan mediante ids compartidos.
 
 | Motor                 | Modulo             | Datos                                                                                                  | Queries existentes                                                                                                                                                                                                                         |
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PostgreSQL (Supabase) | `lib/db/postgres`  | Entidades del DLR + `cuenta_app` para identidad interna                                                | `getEstablecimientos`, `getEstablecimientoById`, `getProductosByEstablecimiento`, `getPedidos`, `getPedidoById`, `getPedidosByCliente`, `getPedidosByEstablecimiento`, `getPedidosByRepartidor`, `getRepartidorById`, `authenticateCuenta` |
-| MongoDB Atlas         | `lib/db/mongodb`   | Proyecciones documentales enriquecidas: catalogos, perfiles, snapshots de pedidos, reviews y actividad | `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: catalogos/perfiles/snapshots                                                                                                                                        |
+| PostgreSQL (Supabase) | `lib/db/postgres`  | Datos relacionales/transaccionales + `cuenta_app` para identidad interna                               | `getEstablecimientos`, `getEstablecimientoById`, `getProductosByEstablecimiento`, `getPedidos`, `getPedidoById`, `getPedidosByCliente`, `getPedidosByEstablecimiento`, `getPedidosByRepartidor`, `getRepartidorById`, `authenticateCuenta` |
+| MongoDB Atlas         | `lib/db/mongodb`   | Fuente documental: catalogos publicos, perfiles, documentos de pedido, reviews y actividad             | `getRestaurantCatalog`, `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: perfiles/documentos                                                                                                                         |
 | Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido                                        | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`                                                                                                                                                   |
 | Cassandra (Astra DB)  | `lib/db/cassandra` | Historicos, metricas y lecturas por patron de acceso                                                   | `getPedidosPorCliente`, `getPedidosPorLocal`, `getPedidosPorRepartidor`, `getMetricasGlobalesDiarias`, `getRankingLocalesPorMes`                                                                                                           |
 
@@ -151,7 +151,7 @@ Al implementar pantallas filtradas por usuario, usar el id de dominio de la sesi
 ## PostgreSQL
 
 - PostgreSQL via Supabase sera la base relacional del trabajo.
-- Modelar las consultas respetando el DLR definido por el equipo: `ESTABLECIMIENTO`, `PRODUCTO`, `CLIENTE`, `DIRECCION_ENTREGA`, `REPARTIDOR`, `PEDIDO`, `DETALLE_PEDIDO`, `CALIFICACION`.
+- Modelar las consultas relacionales respetando el DLR definido por el equipo: `ESTABLECIMIENTO`, `PRODUCTO`, `CLIENTE`, `DIRECCION_ENTREGA`, `REPARTIDOR`, `PEDIDO`, `DETALLE_PEDIDO`, `CALIFICACION`. El catalogo publico enriquecido vive en MongoDB.
 - Preferir queries tipadas y funciones pequenas de acceso a datos.
 
 ## No relacionales
@@ -160,7 +160,7 @@ Al implementar pantallas filtradas por usuario, usar el id de dominio de la sesi
 - Redis vive en `lib/db/redis`.
 - MongoDB vive en `lib/db/mongodb`.
 - Cassandra/DataStax Astra DB vive en `lib/db/cassandra`.
-- MongoDB puede duplicar datos del DLR como documentos derivados, pero PostgreSQL sigue siendo la fuente de verdad para integridad, estado vigente y transacciones.
+- MongoDB es fuente de verdad para documentos flexibles como `restaurant_catalogs`. PostgreSQL sigue siendo fuente de verdad para integridad relacional, estado vigente de pedidos e importes transaccionales.
 - Documentar brevemente que datos aporta cada motor cuando se agregue la implementacion.
 - Mantener una capa comun de normalizacion si la UI necesita combinar datos entre motores.
 

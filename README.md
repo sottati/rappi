@@ -30,8 +30,8 @@ No hay ruta navegable `/clientes`. El cliente existe como dato interno del usuar
 
 | Motor                       | Uso en el sistema                                                                                       |
 | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Supabase/PostgreSQL         | Fuente de verdad del DLR + `cuenta_app` para identidad interna.                                         |
-| MongoDB Atlas               | Proyecciones documentales: catalogos enriquecidos, perfiles, snapshots de pedidos, reviews y actividad. |
+| Supabase/PostgreSQL         | Fuente de verdad relacional/transaccional + `cuenta_app` para identidad interna.                        |
+| MongoDB Atlas               | Fuente documental: catalogos publicos, perfiles, documentos de pedidos, reviews y actividad.            |
 | Redis/Upstash               | Estado vivo: ubicacion actual de repartidor y cache de estado de pedidos.                               |
 | Cassandra/DataStax Astra DB | Historicos, metricas y lecturas desnormalizadas por patron de consulta.                                 |
 

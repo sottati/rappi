@@ -1,8 +1,30 @@
 import { getDb } from './client'
 import type { QueryResult } from '../helpers'
 import { ok, fail, shouldUseMockData } from '../helpers'
-import { mockReviews, mockUserActivity } from './mock'
-import type { Review, UserActivity } from './types'
+import { mockRestaurantCatalogs, mockReviews, mockUserActivity } from './mock'
+import type { RestaurantCatalog, Review, UserActivity } from './types'
+
+export async function getRestaurantCatalog(
+  idEstablecimiento: number
+): Promise<QueryResult<RestaurantCatalog | null>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockRestaurantCatalogs.find(
+        (catalog) => catalog.idEstablecimiento === idEstablecimiento
+      ) ?? null
+    )
+  }
+
+  try {
+    const db = await getDb()
+    const catalog = await db
+      .collection<RestaurantCatalog>('restaurant_catalogs')
+      .findOne({ idEstablecimiento })
+    return ok(catalog)
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'Failed to fetch catalog')
+  }
+}
 
 export async function getRestaurantReviews(
   restaurantId: string,
