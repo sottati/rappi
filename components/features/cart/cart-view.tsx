@@ -7,36 +7,37 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { formatArs, type CartLineItem, type MockCart } from '@/lib/rappi'
+import {
+  getCartItemCount,
+  getCartSubtotal,
+  useCartStore,
+} from '@/lib/cart/store'
+import { formatArs } from '@/lib/rappi'
 
 import { CartLineItemRow } from './cart-line-item'
 
-interface CartViewProps {
-  cart: MockCart
-}
+export function CartView() {
+  const items = useCartStore((state) => state.items)
+  const restaurantId = useCartStore((state) => state.restaurantId)
+  const restaurantName = useCartStore((state) => state.restaurantName)
+  const restaurantLogoSrc = useCartStore((state) => state.restaurantLogoSrc)
+  const deliveryMinutes = useCartStore((state) => state.deliveryMinutes)
+  const deliveryFee = useCartStore((state) => state.deliveryFee)
+  const serviceFee = useCartStore((state) => state.serviceFee)
+  const addressLabel = useCartStore((state) => state.addressLabel)
+  const addressDetail = useCartStore((state) => state.addressDetail)
+  const updateQuantity = useCartStore((state) => state.updateQuantity)
+  const removeItem = useCartStore((state) => state.removeItem)
 
-export function CartView({ cart }: CartViewProps) {
-  const [items, setItems] = useState<CartLineItem[]>(() => [...cart.items])
-
-  const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
-    [items]
-  )
-  const total = subtotal + cart.deliveryFee + cart.serviceFee
-
-  const updateQuantity = (id: string, quantity: number) => {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, quantity } : item))
-    )
-  }
-
-  const removeItem = (id: string) => {
-    setItems((current) => current.filter((item) => item.id !== id))
-  }
+  const subtotal = useMemo(() => getCartSubtotal(items), [items])
+  const total = subtotal + deliveryFee + serviceFee
+  const restaurantHref = restaurantId
+    ? `/restaurantes/${restaurantId}`
+    : '/restaurantes'
 
   if (items.length === 0) {
     return (
@@ -58,25 +59,35 @@ export function CartView({ cart }: CartViewProps) {
         <section className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5">
           <div className="flex items-center gap-3">
             <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted/60">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={cart.restaurantLogoSrc}
-                alt=""
-                className="size-full object-cover"
-              />
+              {restaurantLogoSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={restaurantLogoSrc}
+                  alt=""
+                  className="size-full object-cover"
+                />
+              ) : (
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {restaurantName.slice(0, 2)}
+                </span>
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Pedido de
               </p>
-              <p className="truncate text-lg font-semibold">{cart.restaurantName}</p>
+              <p className="truncate text-lg font-semibold">{restaurantName}</p>
               <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
-                <HugeiconsIcon icon={DeliveryTruck01Icon} className="size-3.5" strokeWidth={2} />
-                {cart.deliveryMinutes} min aprox.
+                <HugeiconsIcon
+                  icon={DeliveryTruck01Icon}
+                  className="size-3.5"
+                  strokeWidth={2}
+                />
+                {deliveryMinutes} min aprox.
               </p>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href="/restaurantes">Agregar más</Link>
+              <Link href={restaurantHref}>Agregar más</Link>
             </Button>
           </div>
 
@@ -97,11 +108,19 @@ export function CartView({ cart }: CartViewProps) {
         <section className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <HugeiconsIcon icon={Location01Icon} className="size-5" strokeWidth={2} />
+              <HugeiconsIcon
+                icon={Location01Icon}
+                className="size-5"
+                strokeWidth={2}
+              />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Entregar en {cart.addressLabel}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{cart.addressDetail}</p>
+              <p className="text-sm font-semibold">
+                Entregar en {addressLabel}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {addressDetail}
+              </p>
             </div>
             <Button variant="ghost" size="sm" type="button" disabled>
               Cambiar
@@ -121,11 +140,11 @@ export function CartView({ cart }: CartViewProps) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Costo de envío</dt>
-              <dd className="font-medium">{formatArs(cart.deliveryFee)}</dd>
+              <dd className="font-medium">{formatArs(deliveryFee)}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Tarifa de servicio</dt>
-              <dd className="font-medium">{formatArs(cart.serviceFee)}</dd>
+              <dd className="font-medium">{formatArs(serviceFee)}</dd>
             </div>
           </dl>
 
@@ -133,12 +152,13 @@ export function CartView({ cart }: CartViewProps) {
 
           <div className="flex items-center justify-between gap-4">
             <span className="text-base font-semibold">Total</span>
-            <span className="text-xl font-semibold text-primary">{formatArs(total)}</span>
+            <span className="text-xl font-semibold text-primary">
+              {formatArs(total)}
+            </span>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {items.reduce((sum, item) => sum + item.quantity, 0)} productos · Pago al confirmar
-            (mock)
+            {getCartItemCount(items)} productos · Pago al confirmar
           </p>
 
           <Button className="w-full" size="lg" asChild>
@@ -146,7 +166,11 @@ export function CartView({ cart }: CartViewProps) {
           </Button>
           <Button variant="outline" className="w-full" asChild>
             <Link href="/restaurantes">
-              <HugeiconsIcon icon={Restaurant01Icon} className="size-4" strokeWidth={2} />
+              <HugeiconsIcon
+                icon={Restaurant01Icon}
+                className="size-4"
+                strokeWidth={2}
+              />
               Seguir comprando
             </Link>
           </Button>

@@ -99,6 +99,8 @@ test123
 - No consultar DB desde Client Components.
 - No crear `app/api/*` para lecturas internas de la propia app.
 - No filtrar permisos solo en el cliente.
+- No usar Zustand para datos de DB. La unica excepcion es el carrito publico en
+  `lib/cart/store.ts`.
 - Toda pantalla protegida debe consultar datos por el id de dominio de la
   sesion:
   - admin: `id_establecimiento`;

@@ -19,7 +19,7 @@ export function EstablishmentHero({ establecimiento, presentation }: Establishme
   return (
     <section className="w-full bg-primary/8 px-4 pb-8 pt-28 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-6xl space-y-4">
-        <div className="relative aspect-[3/1] min-h-40 overflow-hidden rounded-2xl border border-border/80 bg-muted">
+        <div className="relative aspect-3/1 min-h-40 overflow-hidden rounded-2xl border border-border/80 bg-muted">
           {!coverError && presentation.coverSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

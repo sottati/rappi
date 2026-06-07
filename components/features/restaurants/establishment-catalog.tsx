@@ -7,14 +7,23 @@ import { ProductCard } from './product-card'
 
 interface EstablishmentCatalogProps {
   idEstablecimiento: number
+  restaurantName: string
+  restaurantLogoSrc?: string
+  deliveryMinutes?: number
+  deliveryFee?: number
   productos: Producto[]
 }
 
-export function EstablishmentCatalog({ idEstablecimiento, productos }: EstablishmentCatalogProps) {
+export function EstablishmentCatalog({
+  idEstablecimiento,
+  restaurantName,
+  restaurantLogoSrc,
+  deliveryMinutes,
+  deliveryFee,
+  productos,
+}: EstablishmentCatalogProps) {
   if (productos.length === 0) {
-    return (
-      <EmptyState title="Este local todavía no publicó su menú." />
-    )
+    return <EmptyState title="Este local todavía no publicó su menú." />
   }
 
   return (
@@ -22,7 +31,8 @@ export function EstablishmentCatalog({ idEstablecimiento, productos }: Establish
       <div>
         <h2 className="text-lg font-semibold sm:text-xl">Menú</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {productos.length} {productos.length === 1 ? 'producto' : 'productos'} disponibles
+          {productos.length} {productos.length === 1 ? 'producto' : 'productos'}{' '}
+          disponibles
         </p>
       </div>
 
@@ -31,6 +41,10 @@ export function EstablishmentCatalog({ idEstablecimiento, productos }: Establish
           <ProductCard
             key={producto.idProducto}
             idEstablecimiento={idEstablecimiento}
+            restaurantName={restaurantName}
+            restaurantLogoSrc={restaurantLogoSrc}
+            deliveryMinutes={deliveryMinutes}
+            deliveryFee={deliveryFee}
             producto={producto}
           />
         ))}

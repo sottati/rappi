@@ -204,10 +204,6 @@ export async function getPedidosByEstablecimiento(
 export async function getEstablecimientos(): Promise<
   QueryResult<Establecimiento[]>
 > {
-  if (shouldUseMockData()) {
-    return ok(mockEstablecimientos)
-  }
-
   try {
     const rows = await getDrizzleDb().query.establecimiento.findMany({
       orderBy: asc(establecimiento.nombre),
@@ -223,14 +219,6 @@ export async function getEstablecimientos(): Promise<
 export async function getEstablecimientoById(
   idEstablecimiento: number
 ): Promise<QueryResult<Establecimiento | null>> {
-  if (shouldUseMockData()) {
-    return ok(
-      mockEstablecimientos.find(
-        (item) => item.idEstablecimiento === idEstablecimiento
-      ) ?? null
-    )
-  }
-
   try {
     const row = await getDrizzleDb().query.establecimiento.findFirst({
       where: eq(establecimiento.idEstablecimiento, idEstablecimiento),
@@ -246,14 +234,6 @@ export async function getEstablecimientoById(
 export async function getProductosByEstablecimiento(
   idEstablecimiento: number
 ): Promise<QueryResult<Producto[]>> {
-  if (shouldUseMockData()) {
-    return ok(
-      mockProductos.filter(
-        (item) => item.idEstablecimiento === idEstablecimiento
-      )
-    )
-  }
-
   try {
     const rows = await getDrizzleDb().query.producto.findMany({
       where: eq(producto.idEstablecimiento, idEstablecimiento),

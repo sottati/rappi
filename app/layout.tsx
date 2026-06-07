@@ -5,6 +5,11 @@ import { Footer } from "@/components/shared/footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Rappi",
+}
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'})
 

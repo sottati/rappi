@@ -172,3 +172,12 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Contexto:** El proyecto usa cuatro motores y necesita datos consistentes para mostrar la demo. Si cada motor inventa ids propios, la UI no puede combinar datos de forma confiable.
 - **Decision:** `scripts/seed-test-users.ts` carga primero PostgreSQL, resuelve los ids reales del DLR y proyecta esos datos a MongoDB, Redis y Cassandra. PostgreSQL es obligatorio; los motores no relacionales se omiten si no tienen variables de entorno configuradas.
 - **Consecuencias:** +Dataset reproducible, +ids consistentes entre motores, +facil validar la demo de punta a punta. Como contra, el seed crece en responsabilidad y debe mantenerse cuando cambie el modelo.
+
+---
+
+## ADR-020: Zustand solo para carrito cliente
+
+- **Estado:** Aceptada
+- **Contexto:** El carrito debe actualizarse en tiempo real entre navbar, catalogo, detalle de producto y checkout. Ese estado es temporal de UI y no es fuente de verdad de pedidos.
+- **Decision:** Usar Zustand con persistencia local (`localStorage`) solo para el carrito publico (`lib/cart/store.ts`). Mantener la regla de no usar stores globales para datos de DB, sesiones, pedidos persistidos ni entidades del dominio.
+- **Consecuencias:** +Menos boilerplate que Context, +navbar y checkout se sincronizan facil, +el carrito sobrevive refresh. Como contra, hay que evitar que el store se expanda a responsabilidades de backend; la compra real debe persistirse luego via Server Action/PostgreSQL.

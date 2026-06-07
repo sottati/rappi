@@ -174,7 +174,9 @@ Server Component (async) → lib/db/<motor>/queries → pasa data como props
 Client Component → renderiza con shadcn/ui, estado local para interactividad
 ```
 
-**NO usar Redux, Zustand, Context global ni ningun store de estado global.** Los datos viajan server → cliente por props. Para interactividad (filtros, tabs, paginacion) alcanza con `useState`, `URLSearchParams` o Server Actions.
+**NO usar Redux, Context global ni stores globales para datos de DB.** Los datos de bases viajan server → cliente por props. Para interactividad de datos de pantalla (filtros, tabs, paginacion) alcanza con `useState`, `URLSearchParams` o Server Actions.
+
+Excepcion aceptada: el carrito publico usa Zustand en `lib/cart/store.ts` porque debe sincronizar productos entre navbar, catalogo, detalle y checkout con persistencia local. No usar ese store para pedidos persistidos, usuarios, sesiones ni datos de DB.
 
 **Ejemplo concreto del patron:**
 

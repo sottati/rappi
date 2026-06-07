@@ -12,6 +12,7 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { useCartStore } from '@/lib/cart/store'
 import { formatArs, type ProductoDetalle } from '@/lib/rappi'
 
 function getPrecioFinal(precio: number, promocionPorcentaje: number) {
@@ -27,19 +28,55 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
   const { producto, establecimiento, presentacion } = detalle
   const [imgError, setImgError] = useState(false)
   const [quantity, setQuantity] = useState(1)
+  const addItem = useCartStore((state) => state.addItem)
+  const currentRestaurantId = useCartStore((state) => state.restaurantId)
 
-  const precioFinal = getPrecioFinal(producto.precio, producto.promocionPorcentaje)
+  const precioFinal = getPrecioFinal(
+    producto.precio,
+    producto.promocionPorcentaje
+  )
   const tienePromo = producto.promocionPorcentaje > 0
   const establecimientoHref = `/restaurantes/${establecimiento.idEstablecimiento}`
+
+  const handleAdd = () => {
+    if (
+      currentRestaurantId !== null &&
+      currentRestaurantId !== establecimiento.idEstablecimiento &&
+      !window.confirm(
+        'Tu carrito tiene productos de otro local. ¿Querés reemplazarlo?'
+      )
+    ) {
+      return
+    }
+
+    addItem(
+      {
+        idProducto: producto.idProducto,
+        idEstablecimiento: establecimiento.idEstablecimiento,
+        restaurantName: establecimiento.nombre,
+        name: producto.nombre,
+        description: producto.descripcion,
+        unitPrice: precioFinal,
+        imageSrc: producto.foto,
+      },
+      quantity
+    )
+  }
 
   return (
     <div className="space-y-6">
       <nav className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/restaurantes" className="transition-colors hover:text-foreground">
+        <Link
+          href="/restaurantes"
+          className="transition-colors hover:text-foreground"
+        >
           Restaurantes
         </Link>
         <span aria-hidden>/</span>
-        <Link href={establecimientoHref} className="transition-colors hover:text-foreground">
+        <Link
+          href={establecimientoHref}
+          className="transition-colors hover:text-foreground"
+        >
           {establecimiento.nombre}
         </Link>
         <span aria-hidden>/</span>
@@ -48,7 +85,11 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
 
       <Button variant="ghost" size="sm" className="-ml-2 w-fit" asChild>
         <Link href={establecimientoHref}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} data-icon="inline-start" strokeWidth={2} />
+          <HugeiconsIcon
+            icon={ArrowLeft01Icon}
+            data-icon="inline-start"
+            strokeWidth={2}
+          />
           Volver al menú
         </Link>
       </Button>
@@ -80,7 +121,7 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
                   {presentacion.categoria}
                 </span>
                 {tienePromo ? (
-                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-primary uppercase">
                     -{producto.promocionPorcentaje}%
                   </span>
                 ) : null}
@@ -115,7 +156,9 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
                 ))}
               </ul>
               {presentacion.nota ? (
-                <p className="text-sm text-muted-foreground">{presentacion.nota}</p>
+                <p className="text-sm text-muted-foreground">
+                  {presentacion.nota}
+                </p>
               ) : null}
             </div>
           </section>
@@ -124,11 +167,19 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
         <aside className="h-fit space-y-4 rounded-2xl border border-border/80 bg-card p-4 sm:p-5 lg:sticky lg:top-28">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <HugeiconsIcon icon={Restaurant01Icon} className="size-5" strokeWidth={2} />
+              <HugeiconsIcon
+                icon={Restaurant01Icon}
+                className="size-5"
+                strokeWidth={2}
+              />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{establecimiento.nombre}</p>
-              <p className="truncate text-xs text-muted-foreground">{establecimiento.direccion}</p>
+              <p className="truncate text-sm font-semibold">
+                {establecimiento.nombre}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {establecimiento.direccion}
+              </p>
             </div>
           </div>
 
@@ -137,7 +188,9 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Precio</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold">{formatArs(precioFinal)}</span>
+              <span className="text-2xl font-semibold">
+                {formatArs(precioFinal)}
+              </span>
               {tienePromo ? (
                 <span className="text-sm text-muted-foreground line-through">
                   {formatArs(producto.precio)}
@@ -156,9 +209,15 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
                 className="rounded-full"
                 aria-label="Quitar uno"
                 disabled={quantity <= 1 || !producto.disponible}
-                onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                onClick={() =>
+                  setQuantity((current) => Math.max(1, current - 1))
+                }
               >
-                <HugeiconsIcon icon={Remove01Icon} className="size-4" strokeWidth={2} />
+                <HugeiconsIcon
+                  icon={Remove01Icon}
+                  className="size-4"
+                  strokeWidth={2}
+                />
               </Button>
               <span className="min-w-8 text-center text-sm font-medium tabular-nums">
                 {quantity}
@@ -172,7 +231,11 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
                 disabled={!producto.disponible}
                 onClick={() => setQuantity((current) => current + 1)}
               >
-                <HugeiconsIcon icon={Add01Icon} className="size-4" strokeWidth={2} />
+                <HugeiconsIcon
+                  icon={Add01Icon}
+                  className="size-4"
+                  strokeWidth={2}
+                />
               </Button>
             </div>
           </div>
@@ -182,12 +245,13 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
             className="w-full rounded-full"
             size="lg"
             disabled={!producto.disponible}
+            onClick={handleAdd}
           >
             Agregar {formatArs(precioFinal * quantity)}
           </Button>
 
           <p className="text-center text-xs text-muted-foreground">
-            Mock sin carrito persistente.
+            Se actualiza en el carrito de la navbar.
           </p>
         </aside>
       </div>
