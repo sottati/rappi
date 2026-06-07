@@ -13,7 +13,9 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useCartStore } from '@/lib/cart/store'
-import { formatArs, type ProductoDetalle } from '@/lib/rappi'
+import type { RestaurantCatalogProduct } from '@/lib/db/mongodb'
+import { formatArs } from '@/lib/rappi'
+import type { Establecimiento } from '@/types/domain'
 
 function getPrecioFinal(precio: number, promocionPorcentaje: number) {
   if (promocionPorcentaje <= 0) return precio
@@ -21,11 +23,16 @@ function getPrecioFinal(precio: number, promocionPorcentaje: number) {
 }
 
 interface ProductDetailViewProps {
-  detalle: ProductoDetalle
+  establecimiento: Establecimiento
+  producto: RestaurantCatalogProduct & { idEstablecimiento: number }
+  categoriaNombre: string
 }
 
-export function ProductDetailView({ detalle }: ProductDetailViewProps) {
-  const { producto, establecimiento, presentacion } = detalle
+export function ProductDetailView({
+  establecimiento,
+  producto,
+  categoriaNombre,
+}: ProductDetailViewProps) {
   const [imgError, setImgError] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const addItem = useCartStore((state) => state.addItem)
@@ -118,8 +125,16 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  {presentacion.categoria}
+                  {categoriaNombre}
                 </span>
+                {producto.tags?.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
                 {tienePromo ? (
                   <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-primary uppercase">
                     -{producto.promocionPorcentaje}%
@@ -142,25 +157,31 @@ export function ProductDetailView({ detalle }: ProductDetailViewProps) {
 
             <Separator />
 
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold">Ingredientes</h2>
-              <ul className="grid gap-1.5 sm:grid-cols-2">
-                {presentacion.ingredientes.map((ingrediente) => (
-                  <li
-                    key={ingrediente}
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                  >
-                    <span className="size-1.5 shrink-0 rounded-full bg-primary/70" />
-                    {ingrediente}
-                  </li>
-                ))}
-              </ul>
-              {presentacion.nota ? (
-                <p className="text-sm text-muted-foreground">
-                  {presentacion.nota}
-                </p>
-              ) : null}
-            </div>
+            {producto.opciones?.length ? (
+              <div className="space-y-3">
+                <h2 className="text-sm font-semibold">Opciones</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {producto.opciones.map((opcion) => (
+                    <div
+                      key={opcion.nombre}
+                      className="rounded-2xl border border-border/80 bg-card p-3"
+                    >
+                      <h3 className="text-sm font-medium">{opcion.nombre}</h3>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {opcion.valores.map((valor) => (
+                          <span
+                            key={valor}
+                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                          >
+                            {valor}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
 

@@ -1,9 +1,10 @@
-import { EmptyState, ErrorState } from '@/components/shared/query-state'
-import { mongodb } from '@/lib/db'
+import { EmptyState } from '@/components/shared/query-state'
+import type { RestaurantCatalog } from '@/lib/db/mongodb'
 
 import { ProductCard } from './product-card'
 
 interface EstablishmentCatalogProps {
+  catalog: RestaurantCatalog | null
   idEstablecimiento: number
   restaurantName: string
   restaurantLogoSrc?: string
@@ -11,21 +12,15 @@ interface EstablishmentCatalogProps {
   deliveryFee?: number
 }
 
-export async function EstablishmentCatalog({
+export function EstablishmentCatalog({
+  catalog,
   idEstablecimiento,
   restaurantName,
   restaurantLogoSrc,
   deliveryMinutes,
   deliveryFee,
 }: EstablishmentCatalogProps) {
-  const catalogResult =
-    await mongodb.queries.getRestaurantCatalog(idEstablecimiento)
-
-  if (catalogResult.error) {
-    return <ErrorState message={catalogResult.error} />
-  }
-
-  const categorias = [...(catalogResult.data?.categorias ?? [])]
+  const categorias = [...(catalog?.categorias ?? [])]
     .sort((a, b) => a.orden - b.orden)
     .filter((categoria) => categoria.productos.length > 0)
   const totalProductos = categorias.reduce(
@@ -52,8 +47,6 @@ export async function EstablishmentCatalog({
           <h3 className="text-base font-semibold">{categoria.nombre}</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             {categoria.productos.map((producto) => (
-              // Renderizamos el componente ProductCard para cada producto de la categoría
-              // Pasamos los datos del producto y el establecimiento via props
               <ProductCard
                 key={producto.idProducto}
                 idEstablecimiento={idEstablecimiento}

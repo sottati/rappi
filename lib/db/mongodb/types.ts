@@ -30,6 +30,12 @@ export interface RestaurantCatalog {
   updatedAt: Date
 }
 
+export interface RestaurantCatalogProductLookup {
+  catalog: RestaurantCatalog
+  categoria: RestaurantCatalogCategory
+  producto: RestaurantCatalogProduct
+}
+
 export interface Review {
   _id?: ObjectId
   restaurantId: string

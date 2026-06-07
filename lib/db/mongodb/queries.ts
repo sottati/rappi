@@ -2,7 +2,29 @@ import { getDb } from './client'
 import type { QueryResult } from '../helpers'
 import { ok, fail, shouldUseMockData } from '../helpers'
 import { mockRestaurantCatalogs, mockReviews, mockUserActivity } from './mock'
-import type { RestaurantCatalog, Review, UserActivity } from './types'
+import type {
+  RestaurantCatalog,
+  RestaurantCatalogProductLookup,
+  Review,
+  UserActivity,
+} from './types'
+
+function findCatalogProduct(
+  catalog: RestaurantCatalog,
+  idProducto: number
+): RestaurantCatalogProductLookup | null {
+  for (const categoria of catalog.categorias) {
+    const producto = categoria.productos.find(
+      (item) => item.idProducto === idProducto
+    )
+
+    if (producto) {
+      return { catalog, categoria, producto }
+    }
+  }
+
+  return null
+}
 
 export async function getRestaurantCatalog(
   idEstablecimiento: number
@@ -24,6 +46,23 @@ export async function getRestaurantCatalog(
   } catch (e) {
     return fail(e instanceof Error ? e.message : 'Failed to fetch catalog')
   }
+}
+
+export async function getRestaurantCatalogProduct(
+  idEstablecimiento: number,
+  idProducto: number
+): Promise<QueryResult<RestaurantCatalogProductLookup | null>> {
+  const catalogResult = await getRestaurantCatalog(idEstablecimiento)
+
+  if (catalogResult.error) {
+    return fail(catalogResult.error)
+  }
+
+  if (!catalogResult.data) {
+    return ok(null)
+  }
+
+  return ok(findCatalogProduct(catalogResult.data, idProducto))
 }
 
 export async function getRestaurantReviews(

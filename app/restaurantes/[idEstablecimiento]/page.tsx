@@ -5,10 +5,40 @@ import { EstablishmentCatalog } from '@/components/features/restaurants/establis
 import { EstablishmentCatalogSkeleton } from '@/components/features/restaurants/establishment-catalog-skeleton'
 import { EstablishmentHero } from '@/components/features/restaurants/establishment-hero'
 import Navbar from '@/components/navbar'
-import { postgres } from '@/lib/db'
+import { ErrorState } from '@/components/shared/query-state'
+import { mongodb, postgres } from '@/lib/db'
 
 interface EstablecimientoPageProps {
   params: Promise<{ idEstablecimiento: string }>
+}
+
+interface EstablishmentCatalogSectionProps {
+  idEstablecimiento: number
+  restaurantName: string
+}
+
+async function EstablishmentCatalogSection({
+  idEstablecimiento,
+  restaurantName,
+}: EstablishmentCatalogSectionProps) {
+  const catalogResult =
+    await mongodb.queries.getRestaurantCatalog(idEstablecimiento)
+
+  if (catalogResult.error) {
+    return (
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <ErrorState message={catalogResult.error} />
+      </div>
+    )
+  }
+
+  return (
+    <EstablishmentCatalog
+      catalog={catalogResult.data}
+      idEstablecimiento={idEstablecimiento}
+      restaurantName={restaurantName}
+    />
+  )
 }
 
 export default async function EstablecimientoPage({
@@ -19,18 +49,22 @@ export default async function EstablecimientoPage({
 
   if (Number.isNaN(idEstablecimiento)) notFound()
 
-  const establecimiento = await postgres.queries.getEstablecimientoById(idEstablecimiento)
-  if (establecimiento.error) {
-    return <div>Error al obtener el establecimiento</div>
+  const establecimientoResult =
+    await postgres.queries.getEstablecimientoById(idEstablecimiento)
+
+  if (establecimientoResult.error) {
+    return <ErrorState message={establecimientoResult.error} />
   }
 
-  if (!establecimiento.data) notFound()
+  if (!establecimientoResult.data) notFound()
+
+  const establecimiento = establecimientoResult.data
 
   return (
     <main className="min-h-svh bg-background text-foreground">
       <Navbar />
       <EstablishmentHero
-        establecimiento={establecimiento.data}
+        establecimiento={establecimiento}
         presentation={{
           coverSrc: '',
           logoSrc: '',
@@ -40,9 +74,9 @@ export default async function EstablecimientoPage({
         }}
       />
       <Suspense fallback={<EstablishmentCatalogSkeleton />}>
-        <EstablishmentCatalog
+        <EstablishmentCatalogSection
           idEstablecimiento={idEstablecimiento}
-          restaurantName={establecimiento.data.nombre}
+          restaurantName={establecimiento.nombre}
         />
       </Suspense>
     </main>
