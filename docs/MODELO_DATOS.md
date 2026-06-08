@@ -23,7 +23,7 @@ Fuente de verdad para el nucleo relacional/transaccional:
 - `direccion_entrega`
 - `repartidor`
 - `pedido`
-- `detalle_pedido`
+- `detalle_pedido` como snapshot transaccional de items comprados
 - `calificacion`
 
 Tabla auxiliar actual para acceso a la app:
@@ -59,11 +59,15 @@ Consultas actuales:
 - `getRepartidoresDisponibles`
 - `getRepartidorById`
 - `getPedidosByRepartidor`
+- `createPedidoFromCartSnapshot`
 - `authenticateCuenta`
 
 Regla: si el dato necesita integridad referencial fuerte o participa en la
 creacion/estado de un pedido, vive aca. Los datos comerciales/documentales del
-catalogo publico no se modelan primero en PostgreSQL: viven en MongoDB.
+catalogo publico no se modelan primero en PostgreSQL: viven en MongoDB. En
+particular, `detalle_pedido` no debe depender de una FK fuerte al catalogo: debe
+guardar el snapshot del item comprado (`idProducto` del catalogo, nombre,
+cantidad y precio unitario de cierre).
 
 ### Estado actual de datos cargados
 
@@ -127,7 +131,9 @@ secundarios. Por eso PostgreSQL conserva el nucleo ACID del dominio: un pedido
 no deberia apuntar a un cliente, direccion, establecimiento o repartidor
 inexistente. Tambien se mantiene aca el calculo economico minimo del pedido
 (`detalle_pedido.precio_unitario`, cantidades y `pedido.total`), porque forma
-parte de la trazabilidad transaccional.
+parte de la trazabilidad transaccional. El producto del detalle se guarda como
+snapshot del item elegido desde MongoDB, no como dependencia operacional del
+catalogo vigente.
 
 ## MongoDB Atlas
 
@@ -283,8 +289,11 @@ tratarse como prueba de sincronizacion entre clouds.
 Flujo de coordinacion esperado:
 
 1. MongoDB mantiene el catalogo publico y los documentos flexibles.
-2. Al crear un pedido, la app toma los items elegidos del catalogo MongoDB y
-   persiste en PostgreSQL el pedido transaccional con sus importes de cierre.
+2. Al crear un pedido, la app toma el snapshot del carrito armado desde el
+   catalogo MongoDB y persiste en PostgreSQL el pedido transaccional con sus
+   items e importes de cierre. En esta etapa no se agrega una query extra a
+   MongoDB para revalidar productos durante checkout: si el item llego al
+   carrito desde el catalogo, se considera valido para la demo.
 3. Redis guarda estado vivo o cache temporal.
 4. Cassandra recibe eventos/historico para consultas por rol y metricas.
 

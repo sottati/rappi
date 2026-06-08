@@ -15,6 +15,7 @@ Implementacion actual:
 - migraciones generadas:
   - `supabase/migrations/0000_sticky_callisto.sql`;
   - `supabase/migrations/0001_cuenta_app.sql`;
+  - `supabase/migrations/0002_detalle_pedido_snapshot.sql`;
 - queries: `lib/db/postgres/queries.ts`.
 
 ## Enums
@@ -133,15 +134,26 @@ origen para historicos/metricas en Cassandra.
 
 ### detalle_pedido
 
-| Columna           | Tipo            | Restricciones           |
-| ----------------- | --------------- | ----------------------- |
-| `id_detalle`      | `serial`        | PK                      |
-| `id_pedido`       | `integer`       | not null, FK `pedido`   |
-| `id_producto`     | `integer`       | not null, FK `producto` |
-| `cantidad`        | `integer`       | not null                |
-| `precio_unitario` | `numeric(12,2)` | not null                |
+Modelo objetivo:
 
-Uso: items de cada pedido; conserva precio unitario del momento del pedido.
+| Columna                | Tipo            | Restricciones         |
+| ---------------------- | --------------- | --------------------- |
+| `id_detalle`           | `serial`        | PK                    |
+| `id_pedido`            | `integer`       | not null, FK `pedido` |
+| `id_producto_catalogo` | `integer`       | not null              |
+| `nombre_producto`      | `text`          | not null              |
+| `cantidad`             | `integer`       | not null              |
+| `precio_unitario`      | `numeric(12,2)` | not null              |
+
+Uso: items de cada pedido como snapshot transaccional. El catalogo publico vive
+en MongoDB; por eso el detalle guarda el id del producto del catalogo y datos de
+cierre como nombre, cantidad y precio unitario. No debe depender de una FK
+operacional contra `producto`, porque el pedido debe seguir explicable aunque el
+catalogo cambie.
+
+Migracion implementada: `supabase/migrations/0002_detalle_pedido_snapshot.sql`
+convierte `id_producto` en `id_producto_catalogo`, agrega `nombre_producto` y
+elimina la FK contra `producto`.
 
 ### calificacion
 
@@ -190,7 +202,7 @@ seguridad deben aplicarse sobre esta tabla y su capa de queries.
 | `pedido.id_repartidor -> repartidor.id_repartidor`                    | `ON DELETE SET NULL` |
 | `pedido.id_direccion -> direccion_entrega.id_direccion`               | `ON DELETE RESTRICT` |
 | `detalle_pedido.id_pedido -> pedido.id_pedido`                        | `ON DELETE CASCADE`  |
-| `detalle_pedido.id_producto -> producto.id_producto`                  | `ON DELETE RESTRICT` |
+| `detalle_pedido.id_producto_catalogo`                                 | sin FK; snapshot del catalogo MongoDB |
 | `calificacion.id_pedido -> pedido.id_pedido`                          | `ON DELETE CASCADE`  |
 | `cuenta_app.id_cliente -> cliente.id_cliente`                         | `ON DELETE SET NULL` |
 | `cuenta_app.id_repartidor -> repartidor.id_repartidor`                | `ON DELETE SET NULL` |
@@ -207,7 +219,7 @@ seguridad deben aplicarse sobre esta tabla y su capa de queries.
 | `pedido_id_repartidor_idx`         | `pedido(id_repartidor)`         | pedidos por repartidor    |
 | `pedido_estado_idx`                | `pedido(estado)`                | filtros por estado        |
 | `detalle_pedido_id_pedido_idx`     | `detalle_pedido(id_pedido)`     | detalles de pedido        |
-| `detalle_pedido_id_producto_idx`   | `detalle_pedido(id_producto)`   | trazabilidad por producto |
+| `detalle_pedido_id_producto_idx`   | `detalle_pedido(id_producto_catalogo)` | trazabilidad por producto de catalogo |
 | `calificacion_id_pedido_idx`       | `calificacion(id_pedido)`       | calificaciones de pedido  |
 | `cuenta_app_email_unique`          | `cuenta_app(email)`             | login por email           |
 
@@ -226,6 +238,7 @@ seguridad deben aplicarse sobre esta tabla y su capa de queries.
 | `getPedidosByRepartidor`        | `pedido`, `detalle_pedido` |
 | `getEstablecimientoById`        | `establecimiento`          |
 | `getProductosByEstablecimiento` | `producto`                 |
+| `createPedidoFromCartSnapshot`  | `pedido`, `detalle_pedido` |
 | `authenticateCuenta`            | `cuenta_app`               |
 
 ## Gaps fisicos

@@ -181,3 +181,12 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Contexto:** El carrito debe actualizarse en tiempo real entre navbar, catalogo, detalle de producto y checkout. Ese estado es temporal de UI y no es fuente de verdad de pedidos.
 - **Decision:** Usar Zustand con persistencia local (`localStorage`) solo para el carrito publico (`lib/cart/store.ts`). Mantener la regla de no usar stores globales para datos de DB, sesiones, pedidos persistidos ni entidades del dominio.
 - **Consecuencias:** +Menos boilerplate que Context, +navbar y checkout se sincronizan facil, +el carrito sobrevive refresh. Como contra, hay que evitar que el store se expanda a responsabilidades de backend; la compra real debe persistirse luego via Server Action/PostgreSQL.
+
+---
+
+## ADR-021: `detalle_pedido` como snapshot transaccional
+
+- **Estado:** Aceptada
+- **Contexto:** El catalogo publico y sus productos viven en MongoDB como fuente documental. Mantener `detalle_pedido.id_producto` como FK obligatoria contra PostgreSQL fuerza a duplicar el catalogo en dos motores y contradice el reparto de responsabilidades.
+- **Decision:** `detalle_pedido` debe guardar un snapshot del item comprado: `id_producto_catalogo`, `nombre_producto`, `cantidad` y `precio_unitario`. Ese snapshot se persiste al confirmar el pedido y queda como evidencia transaccional aunque el catalogo MongoDB cambie luego. En esta etapa, checkout no agrega una query extra para revalidar los productos contra MongoDB: si el item llego al carrito desde el catalogo, se considera valido para la demo.
+- **Consecuencias:** +Evita duplicar el catalogo como fuente de verdad en PostgreSQL, +preserva trazabilidad de precios/nombres al momento de compra, +simplifica checkout. Como contra, las pantallas historicas deben usar el snapshot del detalle y no asumir que pueden reconstruir el item desde `producto`.

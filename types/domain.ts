@@ -81,7 +81,8 @@ export interface Pedido {
 export interface DetallePedido {
   idDetalle: number
   idPedido: number
-  idProducto: number
+  idProductoCatalogo: number
+  nombreProducto: string
   cantidad: number
   precioUnitario: number
 }

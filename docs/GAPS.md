@@ -30,7 +30,7 @@ flujos de UI.
 | Documentos MongoDB poco consumidos       | Los documentos existen pero pocas pantallas los leen               | agregar queries para perfiles, documentos de pedido y usuario      |
 | Redis sin frescura por ubicacion         | GEO no expira por miembro                                          | agregar key auxiliar `delivery:location:fresh:<id>`                |
 | Tests ausentes                           | Cambios futuros pueden romper contratos de queries/seed            | agregar tests unitarios de mappers y smoke tests de seed           |
-| Snapshot Drizzle `0001` faltante         | Futuras migraciones pueden duplicar `cuenta_app`                   | regenerar/commitear snapshot de Drizzle correspondiente            |
+| Snapshots Drizzle faltantes              | Futuras migraciones pueden duplicar cambios ya aplicados           | regenerar/commitear snapshots de Drizzle posteriores a `0000`      |
 
 ## Prioridad sugerida
 

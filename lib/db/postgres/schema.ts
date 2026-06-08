@@ -129,15 +129,14 @@ export const detallePedido = pgTable(
     idPedido: integer('id_pedido')
       .notNull()
       .references(() => pedido.idPedido, { onDelete: 'cascade' }),
-    idProducto: integer('id_producto')
-      .notNull()
-      .references(() => producto.idProducto, { onDelete: 'restrict' }),
+    idProductoCatalogo: integer('id_producto_catalogo').notNull(),
+    nombreProducto: text('nombre_producto').notNull(),
     cantidad: integer('cantidad').notNull(),
     precioUnitario: money('precio_unitario').notNull(),
   },
   (table) => [
     index('detalle_pedido_id_pedido_idx').on(table.idPedido),
-    index('detalle_pedido_id_producto_idx').on(table.idProducto),
+    index('detalle_pedido_id_producto_idx').on(table.idProductoCatalogo),
   ],
 )
 
@@ -178,12 +177,11 @@ export const establecimientoRelations = relations(establecimiento, ({ many }) =>
   pedidos: many(pedido),
 }))
 
-export const productoRelations = relations(producto, ({ one, many }) => ({
+export const productoRelations = relations(producto, ({ one }) => ({
   establecimiento: one(establecimiento, {
     fields: [producto.idEstablecimiento],
     references: [establecimiento.idEstablecimiento],
   }),
-  detalles: many(detallePedido),
 }))
 
 export const clienteRelations = relations(cliente, ({ many }) => ({
@@ -228,10 +226,6 @@ export const detallePedidoRelations = relations(detallePedido, ({ one }) => ({
   pedido: one(pedido, {
     fields: [detallePedido.idPedido],
     references: [pedido.idPedido],
-  }),
-  producto: one(producto, {
-    fields: [detallePedido.idProducto],
-    references: [producto.idProducto],
   }),
 }))
 

@@ -207,13 +207,15 @@ async function seedPostgres(): Promise<SeedContext> {
     await db.insert(detallePedido).values([
       {
         idPedido: pedidoAna.idPedido,
-        idProducto: productos[0].idProducto,
+        idProductoCatalogo: productos[0].idProducto,
+        nombreProducto: productos[0].nombre,
         cantidad: 1,
         precioUnitario: productos[0].precio,
       },
       {
         idPedido: pedidoAna.idPedido,
-        idProducto: productos[1].idProducto,
+        idProductoCatalogo: productos[1].idProducto,
+        nombreProducto: productos[1].nombre,
         cantidad: 1,
         precioUnitario: productos[1].precio,
       },

@@ -15,6 +15,13 @@
       "when": 1779926833309,
       "tag": "0001_cuenta_app",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779926833310,
+      "tag": "0002_detalle_pedido_snapshot",
+      "breakpoints": true
     }
   ]
 }

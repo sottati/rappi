@@ -65,7 +65,8 @@ erDiagram
     DETALLE_PEDIDO {
         int id_detalle PK
         int id_pedido FK
-        int id_producto FK
+        int id_producto_catalogo
+        string nombre_producto
         int cantidad
         float precio_unitario
     }
@@ -96,28 +97,28 @@ erDiagram
     DIRECCION_ENTREGA ||--o{ PEDIDO : recibe
     PEDIDO ||--o{ DETALLE_PEDIDO : contiene
     PEDIDO ||--o| CALIFICACION : recibe
-    PRODUCTO ||--o{ DETALLE_PEDIDO : incluido_en
     CLIENTE ||--o| CUENTA_APP : autentica
     REPARTIDOR ||--o| CUENTA_APP : autentica
     ESTABLECIMIENTO ||--o| CUENTA_APP : autentica
 ```
 
 Nota: `cuenta_app` es una extension fisica permanente para identidad interna de
-la aplicacion. El DLR transaccional de pedidos sigue siendo el conjunto de
-`establecimiento`, `producto`, `cliente`, `direccion_entrega`, `repartidor`,
-`pedido`, `detalle_pedido` y `calificacion`.
+la aplicacion. El catalogo publico vive en MongoDB; por eso
+`detalle_pedido` guarda un snapshot del item comprado (`id_producto_catalogo`,
+`nombre_producto`, cantidad y precio unitario) en vez de depender de una FK
+operacional al catalogo vigente.
 
 ## Entidades
 
 | Entidad             | Descripción                                                  |
 | ------------------- | ------------------------------------------------------------ |
 | `ESTABLECIMIENTO`   | Comercio que publica productos y recibe pedidos              |
-| `PRODUCTO`          | Ítem del catálogo de un establecimiento                      |
+| `PRODUCTO`          | Referencia administrativa/compatibilidad; el catálogo público vive en MongoDB |
 | `CLIENTE`           | Usuario consumidor                                           |
 | `DIRECCION_ENTREGA` | Direcciones asociadas a un cliente                           |
 | `REPARTIDOR`        | Repartidor asignable a pedidos                               |
 | `PEDIDO`            | Orden; `id_repartidor` opcional hasta asignación             |
-| `DETALLE_PEDIDO`    | Líneas de un pedido (producto, cantidad, precio)             |
+| `DETALLE_PEDIDO`    | Líneas de un pedido como snapshot del item comprado          |
 | `CALIFICACION`      | Valoración ligada a un pedido (0..1 por pedido)              |
 | `CUENTA_APP`        | Cuenta de acceso interna vinculada a una entidad del dominio |
 
@@ -127,7 +128,8 @@ la aplicacion. El DLR transaccional de pedidos sigue siendo el conjunto de
 - Un cliente tiene muchas direcciones y muchos pedidos.
 - Un repartidor puede entregar muchos pedidos.
 - Una dirección puede usarse en muchos pedidos.
-- Un pedido tiene muchos detalles; cada detalle referencia un producto.
+- Un pedido tiene muchos detalles; cada detalle conserva el snapshot del
+  producto elegido desde el catalogo MongoDB.
 - Un pedido puede tener como máximo una calificación.
 - Una cuenta de app pertenece a un solo rol y apunta a una sola entidad de
   dominio segun ese rol.

@@ -1,8 +1,8 @@
 import { asc, desc, eq } from 'drizzle-orm'
+import { EstadoPedido } from '@/types/domain'
 import type {
   CuentaApp,
   DetallePedido,
-  EstadoPedido,
   Establecimiento,
   PedidoConDetalle,
   Producto,
@@ -20,6 +20,7 @@ import {
 } from './mock'
 import {
   cuentaApp,
+  detallePedido,
   establecimiento,
   pedido,
   producto,
@@ -38,7 +39,8 @@ function mapDetalle(row: DetallePedidoSelect): DetallePedido {
   return {
     idDetalle: row.idDetalle,
     idPedido: row.idPedido,
-    idProducto: row.idProducto,
+    idProductoCatalogo: row.idProductoCatalogo,
+    nombreProducto: row.nombreProducto,
     cantidad: row.cantidad,
     precioUnitario: row.precioUnitario,
   }
@@ -93,6 +95,117 @@ function mapRepartidor(row: RepartidorSelect): Repartidor {
     telefono: row.telefono,
     disponible: row.disponible,
     coordenadaActual: row.coordenadaActual,
+  }
+}
+
+export interface CreatePedidoFromCartSnapshotItem {
+  idProductoCatalogo: number
+  nombreProducto: string
+  cantidad: number
+  precioUnitario: number
+}
+
+export interface CreatePedidoFromCartSnapshotInput {
+  idCliente: number
+  idEstablecimiento: number
+  idDireccion: number
+  idRepartidor?: number | null
+  items: CreatePedidoFromCartSnapshotItem[]
+}
+
+function calculatePedidoTotal(items: CreatePedidoFromCartSnapshotItem[]) {
+  return items.reduce(
+    (total, item) => total + item.precioUnitario * item.cantidad,
+    0
+  )
+}
+
+function validatePedidoSnapshotInput(input: CreatePedidoFromCartSnapshotInput) {
+  if (input.items.length === 0) return 'El pedido no tiene items.'
+
+  const invalidItem = input.items.find(
+    (item) =>
+      item.idProductoCatalogo <= 0 ||
+      item.nombreProducto.trim().length === 0 ||
+      item.cantidad <= 0 ||
+      item.precioUnitario < 0
+  )
+
+  return invalidItem ? 'El pedido tiene items invalidos.' : null
+}
+
+export async function createPedidoFromCartSnapshot(
+  input: CreatePedidoFromCartSnapshotInput
+): Promise<QueryResult<PedidoConDetalle>> {
+  const validationError = validatePedidoSnapshotInput(input)
+  if (validationError) return fail(validationError)
+
+  const total = calculatePedidoTotal(input.items)
+
+  if (shouldUseMockData()) {
+    const idPedido =
+      Math.max(0, ...mockPedidos.map((item) => item.idPedido)) + 1
+    const nextDetalleId =
+      Math.max(
+        0,
+        ...mockPedidos.flatMap((item) =>
+          item.detalles.map((detalle) => detalle.idDetalle)
+        )
+      ) + 1
+    const detalles = input.items.map((item, index) => ({
+      idDetalle: nextDetalleId + index,
+      idPedido,
+      idProductoCatalogo: item.idProductoCatalogo,
+      nombreProducto: item.nombreProducto,
+      cantidad: item.cantidad,
+      precioUnitario: item.precioUnitario,
+    }))
+
+    return ok({
+      idPedido,
+      idCliente: input.idCliente,
+      idEstablecimiento: input.idEstablecimiento,
+      idRepartidor: input.idRepartidor ?? null,
+      idDireccion: input.idDireccion,
+      fechaHora: new Date(),
+      estado: EstadoPedido.Pendiente,
+      total,
+      detalles,
+    })
+  }
+
+  try {
+    const result = await getDrizzleDb().transaction(async (tx) => {
+      const [pedidoRow] = await tx
+        .insert(pedido)
+        .values({
+          idCliente: input.idCliente,
+          idEstablecimiento: input.idEstablecimiento,
+          idRepartidor: input.idRepartidor ?? null,
+          idDireccion: input.idDireccion,
+          total,
+        })
+        .returning()
+
+      const detalleRows = await tx
+        .insert(detallePedido)
+        .values(
+          input.items.map((item) => ({
+            idPedido: pedidoRow.idPedido,
+            idProductoCatalogo: item.idProductoCatalogo,
+            nombreProducto: item.nombreProducto.trim(),
+            cantidad: item.cantidad,
+            precioUnitario: item.precioUnitario,
+          }))
+        )
+        .returning()
+
+      return mapPedido({ ...pedidoRow, detalles: detalleRows })
+    })
+
+    return ok(result)
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : 'Failed to create pedido')
   }
 }
 
@@ -204,6 +317,10 @@ export async function getPedidosByEstablecimiento(
 export async function getEstablecimientos(): Promise<
   QueryResult<Establecimiento[]>
 > {
+  if (shouldUseMockData()) {
+    return ok([...mockEstablecimientos].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+  }
+
   try {
     const rows = await getDrizzleDb().query.establecimiento.findMany({
       orderBy: asc(establecimiento.nombre),
@@ -234,6 +351,14 @@ export async function getEstablecimientoById(
 export async function getProductosByEstablecimiento(
   idEstablecimiento: number
 ): Promise<QueryResult<Producto[]>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockProductos
+        .filter((item) => item.idEstablecimiento === idEstablecimiento)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    )
+  }
+
   try {
     const rows = await getDrizzleDb().query.producto.findMany({
       where: eq(producto.idEstablecimiento, idEstablecimiento),
