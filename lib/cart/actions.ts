@@ -70,20 +70,32 @@ export async function confirmCartAction(
     return { error: 'El carrito no tiene un formato válido para confirmar.' }
   }
 
-  const direcciones = await postgres.queries.getDireccionesByCliente(session.userId)
-  if (direcciones.error) return { error: direcciones.error }
+  const idDireccion = Number.parseInt(
+    String(formData.get('idDireccion') ?? ''),
+    10
+  )
 
-  const direccion = direcciones.data?.[0]
-  if (!direccion) {
+  if (Number.isNaN(idDireccion)) {
+    return { error: 'Seleccioná una dirección de entrega.' }
+  }
+
+  const direccion = await postgres.queries.getDireccionEntregaById(
+    idDireccion,
+    session.userId
+  )
+
+  if (direccion.error) return { error: direccion.error }
+
+  if (!direccion.data) {
     return {
-      error: 'No tenés una dirección de entrega registrada para confirmar el pedido.',
+      error: 'La dirección seleccionada no es válida.',
     }
   }
 
   const result = await postgres.queries.createPedidoFromCartSnapshot({
     idCliente: session.userId,
     idEstablecimiento: payload.restaurantId,
-    idDireccion: direccion.idDireccion,
+    idDireccion: direccion.data.idDireccion,
     items: payload.items.map((item) => ({
       idProductoCatalogo: item.idProducto,
       nombreProducto: item.name.trim(),

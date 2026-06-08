@@ -215,7 +215,8 @@ erDiagram
   DETALLE_PEDIDO {
     int id_detalle PK
     int id_pedido FK
-    int id_producto FK
+    int id_producto_catalogo
+    string nombre_producto
     int cantidad
     float precio_unitario
   }
@@ -243,7 +244,6 @@ erDiagram
   REPARTIDOR ||--o{ PEDIDO : "entrega"
   PEDIDO ||--o{ DETALLE_PEDIDO : "contiene"
   PEDIDO ||--o| CALIFICACION : "recibe"
-  PRODUCTO ||--o{ DETALLE_PEDIDO : "incluido en"
   DIRECCION_ENTREGA ||--o{ PEDIDO : "recibe"
   CLIENTE ||--o| CUENTA_APP : "autentica"
   REPARTIDOR ||--o| CUENTA_APP : "autentica"

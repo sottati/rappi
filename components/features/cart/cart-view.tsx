@@ -1,10 +1,6 @@
 'use client'
 
-import {
-  DeliveryTruck01Icon,
-  Location01Icon,
-  Restaurant01Icon,
-} from '@hugeicons/core-free-icons'
+import { DeliveryTruck01Icon, Restaurant01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { useMemo } from 'react'
@@ -19,14 +15,17 @@ import {
 } from '@/lib/cart/store'
 import { formatArs } from '@/lib/rappi'
 
+import { CartAddressPicker } from './cart-address-picker'
 import { ConfirmCartForm } from './confirm-cart-form'
 import { CartLineItemRow } from './cart-line-item'
+import type { DireccionEntrega } from '@/types/domain'
 
 interface CartViewProps {
   session: AppSession | null
+  direcciones?: DireccionEntrega[]
 }
 
-export function CartView({ session }: CartViewProps) {
+export function CartView({ session, direcciones = [] }: CartViewProps) {
   const items = useCartStore((state) => state.items)
   const restaurantId = useCartStore((state) => state.restaurantId)
   const restaurantName = useCartStore((state) => state.restaurantName)
@@ -34,8 +33,6 @@ export function CartView({ session }: CartViewProps) {
   const deliveryMinutes = useCartStore((state) => state.deliveryMinutes)
   const deliveryFee = useCartStore((state) => state.deliveryFee)
   const serviceFee = useCartStore((state) => state.serviceFee)
-  const addressLabel = useCartStore((state) => state.addressLabel)
-  const addressDetail = useCartStore((state) => state.addressDetail)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const removeItem = useCartStore((state) => state.removeItem)
 
@@ -44,6 +41,7 @@ export function CartView({ session }: CartViewProps) {
   const canCheckoutAsUsuario = session?.role === 'usuario'
   const isLoggedInOtherRole =
     session != null && session.role !== 'usuario'
+  const hasDireccionSeleccionable = canCheckoutAsUsuario && direcciones.length > 0
   const restaurantHref = restaurantId
     ? `/restaurantes/${restaurantId}`
     : '/restaurantes'
@@ -114,28 +112,9 @@ export function CartView({ session }: CartViewProps) {
           </ul>
         </section>
 
-        <section className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <HugeiconsIcon
-                icon={Location01Icon}
-                className="size-5"
-                strokeWidth={2}
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">
-                Entregar en {addressLabel}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {addressDetail}
-              </p>
-            </div>
-            <Button variant="ghost" size="sm" type="button" disabled>
-              Cambiar
-            </Button>
-          </div>
-        </section>
+        {canCheckoutAsUsuario ? (
+          <CartAddressPicker direcciones={direcciones} />
+        ) : null}
       </div>
 
       <aside className="lg:sticky lg:top-28 lg:self-start">
@@ -181,7 +160,7 @@ export function CartView({ session }: CartViewProps) {
               </p>
             </>
           ) : canCheckoutAsUsuario ? (
-            <ConfirmCartForm />
+            <ConfirmCartForm canConfirm={hasDireccionSeleccionable} />
           ) : isLoggedInOtherRole ? (
             <>
               <Button className="w-full" size="lg" disabled>

@@ -12,6 +12,7 @@
 /coverage
 
 .agents/
+.cursor/
 
 # next.js
 /.next/

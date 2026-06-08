@@ -1,12 +1,12 @@
 'use client'
 
-import type { ComponentProps, ReactElement } from 'react'
-
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type ReactElement,
+} from 'react'
+
 import {
   DATA_SOURCE_META,
   shouldShowDataSources,
@@ -16,12 +16,7 @@ import { cn } from '@/lib/utils'
 
 function PostgresIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-      className={className}
-    >
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
       <ellipse cx="8" cy="4" rx="5" ry="2" fill="currentColor" opacity="0.9" />
       <path
         d="M3 4v8c0 1.1 2.24 2 5 2s5-.9 5-2V4"
@@ -88,25 +83,28 @@ export interface DataSourcePinProps extends Omit<ComponentProps<'span'>, 'childr
   source: DataSource
   /** Borde superior, hacia adentro desde la esquina. */
   side?: 'left' | 'right'
+  /** Distancia desde el borde lateral, en px. */
+  inset?: number
   /** Texto extra en el tooltip, ej. "restaurant_catalogs". */
   detail?: string
   /** Ignora `NEXT_PUBLIC_SHOW_DATA_SOURCES` y fuerza visibilidad. */
   forceShow?: boolean
 }
 
-const PIN_SIDE_CLASSES = {
-  left: 'left-5',
-  right: 'right-5',
-} as const
-
 export function DataSourcePin({
   source,
   side = 'right',
+  inset = 20,
   detail,
   forceShow = false,
   className,
+  style,
+  onMouseEnter,
+  onMouseLeave,
   ...props
 }: DataSourcePinProps) {
+  const [hovered, setHovered] = useState(false)
+
   if (!forceShow && !shouldShowDataSources()) {
     return null
   }
@@ -114,30 +112,86 @@ export function DataSourcePin({
   const meta = DATA_SOURCE_META[source]
   const Icon = DATA_SOURCE_ICONS[source]
 
+  const sideStyle: CSSProperties =
+    side === 'left' ? { left: inset } : { right: inset }
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          role="img"
-          aria-label={`Fuente: ${meta.label}`}
-          className={cn(
-            'pointer-events-auto absolute top-0 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full border-2 border-background text-white shadow-sm',
-            PIN_SIDE_CLASSES[side],
-            className,
-          )}
-          style={{ backgroundColor: meta.color }}
-          {...props}
+    <span
+      role="img"
+      aria-label={`Fuente: ${meta.label}`}
+      onMouseEnter={(event) => {
+        setHovered(true)
+        onMouseEnter?.(event)
+      }}
+      onMouseLeave={(event) => {
+        setHovered(false)
+        onMouseLeave?.(event)
+      }}
+      className={cn(className)}
+      style={{
+        position: 'absolute',
+        top: 0,
+        ...sideStyle,
+        transform: 'translateY(-50%)',
+        backgroundColor: meta.color,
+        width: 24,
+        height: 24,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        border: '2.5px solid white',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+        cursor: 'default',
+        zIndex: 10,
+        flexShrink: 0,
+        ...style,
+      }}
+      {...props}
+    >
+      <Icon className="size-[13px]" />
+
+      {hovered ? (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 10px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#18181b',
+            color: 'white',
+            padding: '6px 12px',
+            borderRadius: 8,
+            fontSize: 12,
+            lineHeight: 1.5,
+            whiteSpace: 'nowrap',
+            zIndex: 20,
+            pointerEvents: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+          }}
         >
-          <Icon className="size-3.5" />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6}>
-        <span className="font-medium">{meta.label}</span>
-        <span className="text-background/80"> · {meta.description}</span>
-        {detail ? (
-          <span className="mt-0.5 block text-background/70">{detail}</span>
-        ) : null}
-      </TooltipContent>
-    </Tooltip>
+          <span style={{ fontWeight: 600 }}>{meta.label}</span>
+          <span style={{ opacity: 0.6 }}> · {meta.description}</span>
+          {detail ? (
+            <div style={{ opacity: 0.5, marginTop: 2, fontSize: 11 }}>{detail}</div>
+          ) : null}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop: '5px solid #18181b',
+            }}
+          />
+        </div>
+      ) : null}
+    </span>
   )
 }

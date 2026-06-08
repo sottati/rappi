@@ -6,9 +6,6 @@ import { persist } from 'zustand/middleware'
 const DEFAULT_DELIVERY_FEE = 990
 const DEFAULT_SERVICE_FEE = 490
 const DEFAULT_DELIVERY_MINUTES = 35
-const DEFAULT_ADDRESS_LABEL = 'Casa'
-const DEFAULT_ADDRESS_DETAIL = 'Av. Corrientes 1234, CABA'
-
 export interface CartItem {
   id: string
   idProducto: number
@@ -41,12 +38,12 @@ interface CartState {
   deliveryMinutes: number
   deliveryFee: number
   serviceFee: number
-  addressLabel: string
-  addressDetail: string
+  selectedDireccionId: number | null
   items: CartItem[]
   addItem: (item: AddCartItemInput, quantity?: number) => void
   updateQuantity: (id: string, quantity: number) => void
   removeItem: (id: string) => void
+  setSelectedDireccionId: (idDireccion: number) => void
   clearCart: () => void
 }
 
@@ -57,8 +54,7 @@ const emptyCartState = {
   deliveryMinutes: DEFAULT_DELIVERY_MINUTES,
   deliveryFee: DEFAULT_DELIVERY_FEE,
   serviceFee: DEFAULT_SERVICE_FEE,
-  addressLabel: DEFAULT_ADDRESS_LABEL,
-  addressDetail: DEFAULT_ADDRESS_DETAIL,
+  selectedDireccionId: null,
   items: [],
 }
 
@@ -119,6 +115,8 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
         })),
+      setSelectedDireccionId: (idDireccion) =>
+        set({ selectedDireccionId: idDireccion }),
       clearCart: () => set(emptyCartState),
     }),
     {
@@ -130,8 +128,7 @@ export const useCartStore = create<CartState>()(
         deliveryMinutes: state.deliveryMinutes,
         deliveryFee: state.deliveryFee,
         serviceFee: state.serviceFee,
-        addressLabel: state.addressLabel,
-        addressDetail: state.addressDetail,
+        selectedDireccionId: state.selectedDireccionId,
         items: state.items,
       }),
     }

@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { EstadoPedido } from '@/types/domain'
 import type {
   CuentaApp,
@@ -443,6 +443,220 @@ export async function getDireccionesByCliente(
   } catch (e) {
     return fail(
       e instanceof Error ? e.message : 'Failed to fetch direcciones by cliente'
+    )
+  }
+}
+
+export async function getDireccionEntregaById(
+  idDireccion: number,
+  idCliente: number
+): Promise<QueryResult<DireccionEntrega | null>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockDireccionesEntrega.find(
+        (item) =>
+          item.idDireccion === idDireccion && item.idCliente === idCliente
+      ) ?? null
+    )
+  }
+
+  try {
+    const row = await getDrizzleDb().query.direccionEntrega.findFirst({
+      where: and(
+        eq(direccionEntrega.idDireccion, idDireccion),
+        eq(direccionEntrega.idCliente, idCliente)
+      ),
+    })
+    return ok(row ? mapDireccionEntrega(row) : null)
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch direccion entrega'
+    )
+  }
+}
+
+export interface DireccionEntregaInput {
+  calle: string
+  numero: string
+  ciudad: string
+  codigoPostal: string
+}
+
+function normalizeDireccionEntregaInput(
+  data: DireccionEntregaInput
+): DireccionEntregaInput {
+  return {
+    calle: data.calle.trim(),
+    numero: data.numero.trim(),
+    ciudad: data.ciudad.trim(),
+    codigoPostal: data.codigoPostal.trim(),
+  }
+}
+
+function validateDireccionEntregaInput(data: DireccionEntregaInput): string | null {
+  if (!data.calle || !data.numero || !data.ciudad || !data.codigoPostal) {
+    return 'Completá todos los campos de la dirección.'
+  }
+  return null
+}
+
+async function direccionHasPedidos(idDireccion: number): Promise<boolean> {
+  if (shouldUseMockData()) {
+    return mockPedidos.some((item) => item.idDireccion === idDireccion)
+  }
+
+  const row = await getDrizzleDb().query.pedido.findFirst({
+    where: eq(pedido.idDireccion, idDireccion),
+  })
+  return row != null
+}
+
+export async function createDireccionEntrega(
+  idCliente: number,
+  data: DireccionEntregaInput
+): Promise<QueryResult<DireccionEntrega>> {
+  const payload = normalizeDireccionEntregaInput(data)
+  const validationError = validateDireccionEntregaInput(payload)
+  if (validationError) return fail(validationError)
+
+  if (shouldUseMockData()) {
+    const idDireccion =
+      Math.max(0, ...mockDireccionesEntrega.map((item) => item.idDireccion)) + 1
+    const created: DireccionEntrega = {
+      idDireccion,
+      idCliente,
+      ...payload,
+    }
+    mockDireccionesEntrega.push(created)
+    return ok(created)
+  }
+
+  try {
+    const rows = await getDrizzleDb()
+      .insert(direccionEntrega)
+      .values({
+        idCliente,
+        ...payload,
+      })
+      .returning()
+
+    const row = rows[0]
+    if (!row) {
+      return fail('No se pudo crear la dirección.')
+    }
+
+    return ok(mapDireccionEntrega(row))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to create direccion entrega'
+    )
+  }
+}
+
+export async function updateDireccionEntrega(
+  idDireccion: number,
+  idCliente: number,
+  data: DireccionEntregaInput
+): Promise<QueryResult<DireccionEntrega>> {
+  const payload = normalizeDireccionEntregaInput(data)
+  const validationError = validateDireccionEntregaInput(payload)
+  if (validationError) return fail(validationError)
+
+  if (shouldUseMockData()) {
+    const item = mockDireccionesEntrega.find(
+      (direccion) =>
+        direccion.idDireccion === idDireccion &&
+        direccion.idCliente === idCliente
+    )
+
+    if (!item) {
+      return fail('Dirección no encontrada.')
+    }
+
+    Object.assign(item, payload)
+    return ok(item)
+  }
+
+  try {
+    const rows = await getDrizzleDb()
+      .update(direccionEntrega)
+      .set(payload)
+      .where(
+        and(
+          eq(direccionEntrega.idDireccion, idDireccion),
+          eq(direccionEntrega.idCliente, idCliente)
+        )
+      )
+      .returning()
+
+    const row = rows[0]
+    if (!row) {
+      return fail('Dirección no encontrada.')
+    }
+
+    return ok(mapDireccionEntrega(row))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to update direccion entrega'
+    )
+  }
+}
+
+export async function deleteDireccionEntrega(
+  idDireccion: number,
+  idCliente: number
+): Promise<QueryResult<{ idDireccion: number }>> {
+  if (shouldUseMockData()) {
+    const index = mockDireccionesEntrega.findIndex(
+      (direccion) =>
+        direccion.idDireccion === idDireccion &&
+        direccion.idCliente === idCliente
+    )
+
+    if (index === -1) {
+      return fail('Dirección no encontrada.')
+    }
+
+    if (await direccionHasPedidos(idDireccion)) {
+      return fail(
+        'No se puede eliminar una dirección usada en pedidos existentes.'
+      )
+    }
+
+    mockDireccionesEntrega.splice(index, 1)
+    return ok({ idDireccion })
+  }
+
+  try {
+    const existing = await getDireccionEntregaById(idDireccion, idCliente)
+    if (existing.error) return fail(existing.error)
+    if (!existing.data) return fail('Dirección no encontrada.')
+
+    if (await direccionHasPedidos(idDireccion)) {
+      return fail(
+        'No se puede eliminar una dirección usada en pedidos existentes.'
+      )
+    }
+
+    const rows = await getDrizzleDb()
+      .delete(direccionEntrega)
+      .where(
+        and(
+          eq(direccionEntrega.idDireccion, idDireccion),
+          eq(direccionEntrega.idCliente, idCliente)
+        )
+      )
+      .returning({ idDireccion: direccionEntrega.idDireccion })
+
+    const row = rows[0]
+    if (!row) {
+      return fail('Dirección no encontrada.')
+    }
+
+    return ok({ idDireccion: row.idDireccion })
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to delete direccion entrega'
     )
   }
 }

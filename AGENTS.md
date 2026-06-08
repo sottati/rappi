@@ -2,7 +2,7 @@
 
 Fuente de verdad para agentes de IA y colaboradores del repo. Cursor la carga automaticamente como reglas del workspace. Leer esto antes de tocar codigo.
 
-Documentacion complementaria: `README.md` (overview), `docs/HANDOFF.md` (guia operativa), `docs/ARQUITECTURA.md` (estructura), `docs/MODELO_DATOS.md` (reparto por motor), `docs/POSTGRES_MODELO_FISICO.md`, `docs/CASSANDRA_MODELO_FISICO.cql`, `docs/MONGODB_MODELO_FISICO.md`, `docs/REDIS_MODELO_FISICO.md`, `docs/GAPS.md` (pendientes), `docs/DECISIONES.md` (ADRs).
+Documentacion complementaria: `README.md` (overview), **`IMPLEMENTACION.md` (estado de implementacion — leer y actualizar al cerrar tareas)**, `docs/HANDOFF.md` (guia operativa), `docs/ARQUITECTURA.md` (estructura), `docs/MODELO_DATOS.md` (reparto por motor), `docs/POSTGRES_MODELO_FISICO.md`, `docs/CASSANDRA_MODELO_FISICO.cql`, `docs/MONGODB_MODELO_FISICO.md`, `docs/REDIS_MODELO_FISICO.md`, `docs/GAPS.md` (pendientes), `docs/DECISIONES.md` (ADRs).
 
 ## Proyecto
 
@@ -21,7 +21,7 @@ Lo que ya existe (usar como referencia, no reinventar):
 | `app/page.tsx`               | Landing con links a roles y flujo publico de restaurantes/carrito    |
 | `app/admin/`                 | Layout protegido + resumen + `/admin/local` + productos (Mongo CRUD) + pedidos |
 | `app/repartidor/`            | Layout protegido + resumen + disponibilidad + pedidos mock/parciales |
-| `app/usuario/`               | Layout protegido + resumen scoped + pedidos mock/parciales           |
+| `app/usuario/`               | Layout protegido + perfil + CRUD direcciones (Postgres) + pedidos mock/parciales |
 | `app/login`                  | Login funcional contra `cuenta_app` mediante Server Action           |
 | `lib/auth/*`                 | Sesion propia con cookie firmada; no se usa Supabase Auth            |
 | `lib/db/*`                   | Clientes, queries y mocks por motor                                  |
@@ -36,7 +36,8 @@ Rutas todavia pendientes o incompletas (crear siguiendo el patron existente):
 - completar integracion real de `/admin/pedidos/[idPedido]`
 - completar integracion real de `/repartidor/pedidos`, `/repartidor/pedidos/[idPedido]`
 - completar integracion real de `/usuario/pedidos`, `/usuario/pedidos/[idPedido]`
-- `/usuario/establecimientos`, `/usuario/direcciones` y detalles
+- `/usuario/establecimientos` y detalles de pedidos
+- direcciones: CRUD en `/usuario` (no hay ruta `/usuario/direcciones` separada)
 
 Auth publica: `/login` funciona contra `cuenta_app`; `/signin` es pantalla publica pendiente de logica real de registro. No crear `/clientes`; `Cliente` existe como dato interno del usuario consumidor.
 
@@ -50,7 +51,9 @@ Antes de implementar una pantalla nueva, leer estos archivos:
 4. `app/admin/page.tsx` — orquestacion de multiples queries con `Promise.all`
 5. `app/admin/layout.tsx` — layout por rol con `RoleShell` + `requireSession`
 6. `lib/db/postgres/queries.ts` — patron de query con mock/real
-7. `types/domain.ts` — tipos compartidos del dominio
+7. `app/usuario/page.tsx` — CRUD direcciones scoped: sesion → Postgres → `UsuarioDirecciones`
+8. `app/carrito/page.tsx` + `components/features/cart/cart-address-picker.tsx` — checkout con selector de direccion
+9. `types/domain.ts` — tipos compartidos del dominio
 
 ## Stack
 
@@ -114,7 +117,7 @@ Respetar este reparto al agregar queries o pantallas. Cada motor conserva la fue
 
 | Motor                 | Modulo             | Datos                                                                                                  | Queries existentes                                                                                                                                                                                                                         |
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PostgreSQL (Supabase) | `lib/db/postgres`  | Datos relacionales/transaccionales + `cuenta_app` para identidad interna                               | `getEstablecimientos`, `getEstablecimientoById`, `getProductosByEstablecimiento`, `getPedidos`, `getPedidoById`, `getPedidosByCliente`, `getPedidosByEstablecimiento`, `getPedidosByRepartidor`, `getRepartidorById`, `createPedidoFromCartSnapshot`, `authenticateCuenta` |
+| PostgreSQL (Supabase) | `lib/db/postgres`  | Datos relacionales/transaccionales + `cuenta_app` para identidad interna                               | `getEstablecimientos`, `getEstablecimientoById`, `getProductosByEstablecimiento`, `getPedidos`, `getPedidoById`, `getPedidosByCliente`, `getPedidosByEstablecimiento`, `getPedidosByRepartidor`, `getRepartidorById`, `createPedidoFromCartSnapshot`, `getDireccionesByCliente`, `getDireccionEntregaById`, `createDireccionEntrega`, `updateDireccionEntrega`, `deleteDireccionEntrega`, `authenticateCuenta` |
 | MongoDB Atlas         | `lib/db/mongodb`   | Fuente documental: catalogos publicos, perfiles, documentos de pedido, reviews y actividad             | `getRestaurantCatalog`, `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: perfiles/documentos                                                                                                                         |
 | Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido                                        | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`                                                                                                                                                   |
 | Cassandra (Astra DB)  | `lib/db/cassandra` | Historicos, metricas y lecturas por patron de acceso                                                   | `getPedidosPorCliente`, `getPedidosPorLocal`, `getPedidosPorRepartidor`, `getMetricasGlobalesDiarias`, `getRankingLocalesPorMes`                                                                                                           |
@@ -233,7 +236,16 @@ Checklist obligatorio:
 6. Si la UI necesita interactividad (filtros, tabs), extraer a `components/features/<Nombre>.tsx` con `"use client"` y recibir datos por props.
 7. Agregar link en el `layout.tsx` del rol solo si la ruta es nueva (los layouts ya tienen nav parcial).
 8. Correr `pnpm typecheck` y `pnpm lint` antes de terminar.
+9. **Al finalizar:** leer `IMPLEMENTACION.md`, actualizar tablas/leyendas/bitacora si el cambio altera rutas, queries, requerimientos o gaps. Marcar items completados (❌/⚠️ → ✅), mover rutas de mock a real si aplica, y agregar una fila breve en **Bitacora de avances**.
 
 ## Objetivo del codigo
 
 La prioridad es dejar una base clara para conectar los motores cloud, consultar datos y renderizarlos en pantallas del proyecto. Implementar de forma incremental, manteniendo el codigo simple, tipado y facil de explicar para la entrega del trabajo practico.
+
+## Seguimiento de implementacion
+
+`IMPLEMENTACION.md` es el documento vivo del estado del proyecto (rutas, queries, requerimientos, gaps, bitacora). **Todo agente debe:**
+
+1. Consultarlo al inicio de una tarea relevante para no duplicar trabajo ni contradecir decisiones ya tomadas.
+2. Actualizarlo al cerrar la tarea si hubo cambios en codigo que afecten su contenido (ver checklist en la seccion "Como actualizar este archivo" de ese documento).
+3. No dejar `IMPLEMENTACION.md` desactualizado respecto al codigo entregado en la misma sesion.

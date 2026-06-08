@@ -8,9 +8,14 @@ import { useCartStore } from '@/lib/cart/store'
 
 const initialState: ConfirmCartState = {}
 
-export function ConfirmCartForm() {
+interface ConfirmCartFormProps {
+  canConfirm?: boolean
+}
+
+export function ConfirmCartForm({ canConfirm = true }: ConfirmCartFormProps) {
   const items = useCartStore((state) => state.items)
   const restaurantId = useCartStore((state) => state.restaurantId)
+  const selectedDireccionId = useCartStore((state) => state.selectedDireccionId)
   const [state, formAction, pending] = useActionState(
     confirmCartAction,
     initialState
@@ -31,10 +36,24 @@ export function ConfirmCartForm() {
     [items, restaurantId]
   )
 
+  const isSubmitDisabled =
+    pending || !canConfirm || selectedDireccionId == null
+
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="cartPayload" value={cartPayload} readOnly />
-      <Button className="w-full" size="lg" type="submit" disabled={pending}>
+      <input
+        type="hidden"
+        name="idDireccion"
+        value={selectedDireccionId ?? ''}
+        readOnly
+      />
+      <Button
+        className="w-full"
+        size="lg"
+        type="submit"
+        disabled={isSubmitDisabled}
+      >
         {pending ? 'Confirmando…' : 'Confirmar pedido'}
       </Button>
       {state.error ? (
