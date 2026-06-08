@@ -6,12 +6,12 @@ ubicar cada dato segun consistencia, forma de consulta y frecuencia de escritura
 
 ## Resumen
 
-| Motor               | Rol en la arquitectura        | Motivo                                                                 |
-| ------------------- | ----------------------------- | ---------------------------------------------------------------------- |
-| PostgreSQL/Supabase | Fuente de verdad relacional   | Integridad, claves foraneas, transacciones y entidades del pedido      |
-| MongoDB Atlas       | Fuente de verdad documental   | Catalogos, perfiles, reviews y documentos con estructura flexible      |
-| Redis/Upstash       | Estado vivo y cache           | Baja latencia, TTL y ubicaciones/estados temporales                    |
-| Cassandra/Astra DB  | Historico y analitica por query | Alta escritura, datos append-only y tablas modeladas por consulta    |
+| Motor               | Rol en la arquitectura          | Motivo                                                            |
+| ------------------- | ------------------------------- | ----------------------------------------------------------------- |
+| PostgreSQL/Supabase | Fuente de verdad relacional     | Integridad, claves foraneas, transacciones y entidades del pedido |
+| MongoDB Atlas       | Fuente de verdad documental     | Catalogos, perfiles, reviews y documentos con estructura flexible |
+| Redis/Upstash       | Estado vivo y cache             | Baja latencia, TTL y ubicaciones/estados temporales               |
+| Cassandra/Astra DB  | Historico y analitica por query | Alta escritura, datos append-only y tablas modeladas por consulta |
 
 ## PostgreSQL/Supabase
 
@@ -74,16 +74,16 @@ cantidad y precio unitario de cierre).
 La implementacion ya tiene una primera base para dejar de depender solo de
 pantallas mock:
 
-| Dato              | Estado                               | Uso actual                    |
-| ----------------- | ------------------------------------ | ----------------------------- |
-| `cuenta_app`      | 3 cuentas cargadas                   | login interno por rol         |
-| `establecimiento` | seed demo con locales iniciales      | catalogo, admin y usuario     |
-| `producto`        | referencias transaccionales demo     | admin/compatibilidad          |
-| `cliente`         | cliente demo `Ana Perez`             | sesion de usuario consumidor  |
-| `repartidor`      | repartidor demo `Lucia Gomez`        | sesion de repartidor          |
-| `pedido`          | pedido demo inicial                  | base para pantallas de pedido |
-| `detalle_pedido`  | 2 items demo del pedido principal    | detalle/listado de pedidos    |
-| `calificacion`    | 2 calificaciones demo                | reviews y metricas derivadas  |
+| Dato              | Estado                            | Uso actual                    |
+| ----------------- | --------------------------------- | ----------------------------- |
+| `cuenta_app`      | 3 cuentas cargadas                | login interno por rol         |
+| `establecimiento` | seed demo con locales iniciales   | catalogo, admin y usuario     |
+| `producto`        | referencias transaccionales demo  | admin/compatibilidad          |
+| `cliente`         | cliente demo `Ana Perez`          | sesion de usuario consumidor  |
+| `repartidor`      | repartidor demo `Lucia Gomez`     | sesion de repartidor          |
+| `pedido`          | pedido demo inicial               | base para pantallas de pedido |
+| `detalle_pedido`  | 2 items demo del pedido principal | detalle/listado de pedidos    |
+| `calificacion`    | 2 calificaciones demo             | reviews y metricas derivadas  |
 
 Cuentas actuales en `cuenta_app`:
 
@@ -192,16 +192,20 @@ Modelo fisico: `docs/REDIS_MODELO_FISICO.md`.
 
 Claves actuales:
 
-| Dato                 | Key/patron                   | Uso                     |
-| -------------------- | ---------------------------- | ----------------------- |
-| ubicacion repartidor | `delivery:locations` con GEO | obtener posicion actual |
-| estado pedido        | `order:status:<id>` con TTL  | cache de estado visible |
+| Dato                 | Key/patron                           | Uso                      |
+| -------------------- | ------------------------------------ | ------------------------ |
+| ubicacion repartidor | `delivery:locations` con GEO         | obtener posicion actual  |
+| estado pedido        | `order:status:<id>` con TTL          | cache de estado visible  |
+| pedidos disponibles  | `delivery:available_orders`          | set de ids candidatos    |
+| snapshot disponible  | `delivery:available_order:<id>` hash | render rapido repartidor |
+| claim pedido         | `order:claim:<id>` con `NX`          | lock atomico temporal    |
 
 Uso desde codigo:
 
 - modulo: `lib/db/redis`;
 - queries: `setDeliveryLocation`, `getDeliveryLocation`,
-  `cacheOrderStatus`, `getCachedOrderStatus`.
+  `cacheOrderStatus`, `getCachedOrderStatus`, `addAvailableOrder`,
+  `getAvailableOrders`, `removeAvailableOrder`, `claimAvailableOrder`.
 
 Regla: Redis no es fuente de verdad del pedido. Si se pierde una key, se puede
 reconstruir desde PostgreSQL o eventos historicos.

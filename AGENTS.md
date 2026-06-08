@@ -20,8 +20,8 @@ Lo que ya existe (usar como referencia, no reinventar):
 | ---------------------------- | -------------------------------------------------------------------- |
 | `app/page.tsx`               | Landing con links a roles y flujo publico de restaurantes/carrito    |
 | `app/admin/`                 | Layout protegido + resumen + `/admin/local` + productos (Mongo CRUD) + pedidos |
-| `app/repartidor/`            | Layout protegido + resumen + disponibilidad + pedidos mock/parciales |
-| `app/usuario/`               | Layout protegido + perfil + CRUD direcciones (Postgres) + pedidos mock/parciales |
+| `app/repartidor/`            | Layout protegido + resumen real + disponibilidad + pedidos reales/asignacion |
+| `app/usuario/`               | Layout protegido + perfil + CRUD direcciones (Postgres) + pedidos reales |
 | `app/login`                  | Login funcional contra `cuenta_app` mediante Server Action           |
 | `lib/auth/*`                 | Sesion propia con cookie firmada; no se usa Supabase Auth            |
 | `lib/db/*`                   | Clientes, queries y mocks por motor                                  |
@@ -33,9 +33,7 @@ Lo que ya existe (usar como referencia, no reinventar):
 Rutas todavia pendientes o incompletas (crear siguiendo el patron existente):
 
 - `/admin/analytics`
-- completar integracion real de `/admin/pedidos/[idPedido]`
-- completar integracion real de `/repartidor/pedidos`, `/repartidor/pedidos/[idPedido]`
-- completar integracion real de `/usuario/pedidos`, `/usuario/pedidos/[idPedido]`
+- completar resumen real de `/repartidor`
 - `/usuario/establecimientos` y detalles de pedidos
 - direcciones: CRUD en `/usuario` (no hay ruta `/usuario/direcciones` separada)
 
@@ -119,7 +117,7 @@ Respetar este reparto al agregar queries o pantallas. Cada motor conserva la fue
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | PostgreSQL (Supabase) | `lib/db/postgres`  | Datos relacionales/transaccionales + `cuenta_app` para identidad interna                               | `getEstablecimientos`, `getEstablecimientoById`, `getProductosByEstablecimiento`, `getPedidos`, `getPedidoById`, `getPedidosByCliente`, `getPedidosByEstablecimiento`, `getPedidosByRepartidor`, `getRepartidorById`, `createPedidoFromCartSnapshot`, `getDireccionesByCliente`, `getDireccionEntregaById`, `createDireccionEntrega`, `updateDireccionEntrega`, `deleteDireccionEntrega`, `authenticateCuenta` |
 | MongoDB Atlas         | `lib/db/mongodb`   | Fuente documental: catalogos publicos, perfiles, documentos de pedido, reviews y actividad             | `getRestaurantCatalog`, `getRestaurantReviews`, `createReview`, `getUserActivity`; pendientes: perfiles/documentos                                                                                                                         |
-| Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido                                        | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`                                                                                                                                                   |
+| Redis (Upstash)       | `lib/db/redis`     | Estado vivo: ubicacion de repartidor, cache de estado de pedido, pool de pedidos disponibles           | `setDeliveryLocation`, `getDeliveryLocation`, `cacheOrderStatus`, `getCachedOrderStatus`, `addAvailableOrder`, `removeAvailableOrder`, `getAvailableOrderIds`, `claimAvailableOrder`                                                       |
 | Cassandra (Astra DB)  | `lib/db/cassandra` | Historicos, metricas y lecturas por patron de acceso                                                   | `getPedidosPorCliente`, `getPedidosPorLocal`, `getPedidosPorRepartidor`, `getMetricasGlobalesDiarias`, `getRankingLocalesPorMes`                                                                                                           |
 
 Tipos del dominio relacional en `types/domain.ts` (camelCase). En SQL/Supabase usar snake_case (`id_pedido`, `fecha_hora`).

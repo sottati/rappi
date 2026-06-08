@@ -10,3 +10,14 @@ export interface OrderStatusCache {
   status: string
   ttlSeconds: number
 }
+
+export interface AvailableOrderSnapshot {
+  idPedido: number
+  estado: string
+  fechaHora: Date
+  total: number
+  idEstablecimiento: number
+  establecimientoNombre: string
+  direccionResumen: string
+  itemCount: number
+}

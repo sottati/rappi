@@ -1,16 +1,35 @@
-import Link from 'next/link'
+import Link from "next/link"
 
-import { OrderStatusBadge } from '@/components/features/orders/order-status-badge'
-import { PedidoStatusStepper } from '@/components/features/orders/pedido-status-stepper'
-import { Separator } from '@/components/ui/separator'
-import {
-  formatArs,
-  formatPedidoFecha,
-  type MockPedidoVista,
-} from '@/lib/rappi'
+import { OrderStatusBadge } from "@/components/features/orders/order-status-badge"
+import { PedidoStatusStepper } from "@/components/features/orders/pedido-status-stepper"
+import { Separator } from "@/components/ui/separator"
+import { formatArs, formatPedidoFecha } from "@/lib/rappi"
+import type { EstadoPedido } from "@/types/domain"
+
+export interface OrderDetailPedido {
+  idPedido: number
+  fechaHora: Date
+  estado: EstadoPedido
+  total: number
+  establecimientoNombre: string
+  repartidorNombre: string | null
+  direccion: {
+    label: string
+    calle: string
+    numero: string
+    ciudad: string
+    codigoPostal: string
+  }
+  lineas: Array<{
+    idDetalle: number
+    nombreProducto: string
+    cantidad: number
+    precioUnitario: number
+  }>
+}
 
 interface OrderDetailViewProps {
-  pedido: MockPedidoVista
+  pedido: OrderDetailPedido
   backHref: string
   backLabel?: string
 }
@@ -18,23 +37,30 @@ interface OrderDetailViewProps {
 export function OrderDetailView({
   pedido,
   backHref,
-  backLabel = 'Volver al listado',
+  backLabel = "Volver al listado",
 }: OrderDetailViewProps) {
   const direccionCompleta = `${pedido.direccion.calle} ${pedido.direccion.numero}, ${pedido.direccion.ciudad} (${pedido.direccion.codigoPostal})`
 
   return (
     <div className="space-y-6">
-      <Link href={backHref} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+      <Link
+        href={backHref}
+        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
         ← {backLabel}
       </Link>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold">Pedido #{pedido.idPedido}</h1>
+            <h1 className="text-2xl font-semibold">
+              Pedido #{pedido.idPedido}
+            </h1>
             <OrderStatusBadge estado={pedido.estado} />
           </div>
-          <p className="text-sm text-muted-foreground">{formatPedidoFecha(pedido.fechaHora)}</p>
+          <p className="text-sm text-muted-foreground">
+            {formatPedidoFecha(pedido.fechaHora)}
+          </p>
         </div>
         <p className="text-2xl font-semibold">{formatArs(pedido.total)}</p>
       </div>
@@ -54,7 +80,9 @@ export function OrderDetailView({
             </div>
             <div>
               <dt className="text-muted-foreground">Repartidor</dt>
-              <dd className="font-medium">{pedido.repartidorNombre ?? 'Sin asignar'}</dd>
+              <dd className="font-medium">
+                {pedido.repartidorNombre ?? "Sin asignar"}
+              </dd>
             </div>
           </dl>
         </section>

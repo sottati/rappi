@@ -16,8 +16,8 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | Catálogo público (`/restaurantes/`*)                    | ✅ Postgres + Mongo                                                           |
 | Login y sesión por rol                                  | ✅ Funcional (+ callback `?next=`)                                            |
 | Flujo de compra end-to-end                              | ✅ Checkout persiste en Postgres                                              |
-| Detalle de pedidos por rol                              | ❌ Mayormente mock                                                            |
-| CRUD operativo (productos, direcciones, estados)        | ⚠️ Parcial (admin catálogo + local ✅; direcciones usuario ✅; pedidos/estados pendiente) |
+| Detalle de pedidos por rol                              | ✅ Postgres scoped por rol                                                    |
+| CRUD operativo (productos, direcciones, estados)        | ⚠️ Parcial (admin catálogo + local ✅; direcciones usuario ✅; estados pedido ✅; perfil/registro pendiente) |
 | Analytics / Cassandra en UI                             | ❌ Sin pantallas                                                              |
 | Sincronización multibase post-checkout                  | ❌ Pendiente (Fase 1.5)                                                       |
 |                                                         |                                                                              |
@@ -140,6 +140,42 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 
 ---
 
+## Cambios recientes (Pedidos operativos — estado y asignación)
+
+| Ítem                                      | Estado | Notas                                                                 |
+| ----------------------------------------- | ------ | --------------------------------------------------------------------- |
+| Detalle pedido admin real                 | ✅      | `getPedidoById` + check `id_establecimiento`                          |
+| Listado/detalle pedidos usuario real      | ✅      | `getPedidosByCliente` + ownership `id_cliente`                        |
+| Listado/detalle pedidos repartidor real   | ✅      | `getPedidosByRepartidor` + check `id_repartidor`                      |
+| Cambio estado comercio                    | ✅      | `pendiente → confirmado/cancelado`, `confirmado → preparando`         |
+| Pool Redis de pedidos disponibles         | ✅      | Set `delivery:available_orders` + Hash snapshot por pedido            |
+| Claim repartidor                          | ✅      | `order:claim:<idPedido>` con `SET NX` antes de asignar en Postgres    |
+| Cambio estado repartidor                  | ✅      | `confirmado/preparando → en_camino → entregado`                       |
+| Proyección Cassandra de eventos           | ❌      | Comentarios en Server Actions; queda para fase posterior              |
+
+### Archivos clave (pedidos operativos)
+
+| Capa                | Archivos                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| Rutas               | `app/admin/pedidos/[idPedido]/page.tsx`, `app/usuario/pedidos/`, `app/repartidor/pedidos/`   |
+| Acciones client     | `admin-order-detail-view.tsx`, `repartidor-order-actions.tsx`                                |
+| Server Actions      | `lib/orders/actions.ts`                                                                      |
+| Queries Postgres    | `updatePedidoEstado`, `assignPedidoToRepartidor`                                             |
+| Queries Redis       | `addAvailableOrder`, `removeAvailableOrder`, `getAvailableOrders`, `claimAvailableOrder`      |
+| View model          | `lib/orders/view-model.ts`                                                                   |
+
+Flujo actual:
+
+```
+usuario crea pedido → Postgres pendiente
+admin confirma → Postgres confirmado + Redis Set ids + Hash snapshot
+repartidor lista → Redis SMEMBERS + HGETALL, sin query Postgres por candidato
+repartidor toma → Redis claim NX + Postgres id_repartidor
+repartidor avanza → Postgres en_camino / entregado + Redis order:status
+```
+
+---
+
 ## Rutas
 
 ### Implementadas con datos reales
@@ -158,8 +194,14 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | `/admin/productos/nuevo`                   | Mongo                         | Alta vía `saveCatalogProductAction` → redirect a detalle |
 | `/admin/productos/[idProducto]`            | Mongo                         | Edición + toggle disponibilidad                          |
 | `/admin/pedidos`                           | Postgres                      | Scoped por `id_establecimiento`                          |
+| `/admin/pedidos/[idPedido]`                | Postgres + Redis              | Detalle scoped + confirmar/rechazar/preparar             |
 | `/usuario`                                 | Postgres                      | Perfil + CRUD `direccion_entrega` scoped por `id_cliente` |
+| `/usuario/pedidos`                         | Postgres                      | Historial scoped por `id_cliente`                        |
+| `/usuario/pedidos/[idPedido]`              | Postgres                      | Detalle con ownership `id_cliente`                       |
+| `/repartidor`                              | Postgres + Redis              | Resumen scoped por `id_repartidor` + ubicación Redis     |
 | `/repartidor/disponibilidad`               | Postgres + Redis              | Solo lectura                                             |
+| `/repartidor/pedidos`                      | Postgres + Redis              | Disponibles para tomar + asignados al repartidor         |
+| `/repartidor/pedidos/[idPedido]`           | Postgres + Redis              | Detalle scoped + avance en camino/entregado              |
 
 
 ### Existen pero siguen en mock o parcial
@@ -169,12 +211,6 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | -------------------------------- | ---------- | ---------------------------------------------------- |
 | `/admin`                         | ⚠️ Mock    | Postgres scoped + Cassandra métricas                 |
 | `/admin/establecimientos`        | ✅ Redirect | Redirige a `/admin/local`                            |
-| `/admin/pedidos/[idPedido]`      | ❌ Mock     | `getPedidoById` + autorización + update estado       |
-| `/repartidor`                    | ❌ Mock     | Postgres + Redis                                     |
-| `/repartidor/pedidos`            | ❌ Mock     | `getPedidosByRepartidor`                             |
-| `/repartidor/pedidos/[idPedido]` | ❌ Mock     | `getPedidoById` + check `id_repartidor`              |
-| `/usuario/pedidos`               | ❌ Mock     | `getPedidosByCliente` (inconsistente con `/usuario`) |
-| `/usuario/pedidos/[idPedido]`    | ❌ Mock     | `getPedidoById` + check `id_cliente`                 |
 | `/signin`                        | ❌ Visual   | Alta en `cliente` + `cuenta_app`                     |
 
 
@@ -202,15 +238,16 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | `getEstablecimientos` / `getEstablecimientoById`   | ✅         | Público + admin + confirmación                |
 | `getProductosByEstablecimiento`                    | ⚠️ legacy | Ya no usada en admin; catálogo admin en Mongo |
 | `updateEstablecimiento`                            | ✅         | `/admin/local`                                |
-| `getPedidos` / `getPedidoById` / filtros por rol   | ✅ queries | ⚠️ Listado admin + confirmación; resto mock   |
+| `getPedidos` / `getPedidoById` / filtros por rol   | ✅         | Pedidos por rol, detalles y confirmación      |
 | `createPedidoFromCartSnapshot`                     | ✅         | `/carrito` → `confirmCartAction`              |
 | `getDireccionesByCliente`                          | ✅         | `/usuario`, `/carrito`, confirmación          |
 | `getDireccionEntregaById`                          | ✅         | Checkout (validación ownership)               |
 | `createDireccionEntrega` / `updateDireccionEntrega` | ✅      | `/usuario` (`saveDireccionAction`)            |
 | `deleteDireccionEntrega`                           | ✅         | `/usuario` (bloquea si hay pedidos)           |
 | `getRepartidorById` / `getRepartidoresDisponibles` | ✅         | Disponibilidad (lectura)                      |
+| `updatePedidoEstado`                               | ✅         | Admin/repartidor Server Actions               |
+| `assignPedidoToRepartidor`                         | ✅         | Claim repartidor                              |
 | Cliente: get / update perfil                       | ❌         | —                                             |
-| `updatePedidoEstado` / asignar repartidor          | ❌         | —                                             |
 | Calificación: create / promedio por local          | ❌         | —                                             |
 | Hash de `cuenta_app.contrasenia`                   | ❌         | Texto plano (demo)                            |
 | Constraints de negocio (montos, checks por rol)    | ❌         | `docs/GAPS.md`                                |
@@ -241,7 +278,10 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | ------------------------------------------- | --------- | ------------------------------------ |
 | `getDeliveryLocation`                       | ✅         | `/repartidor/disponibilidad`         |
 | `setDeliveryLocation`                       | ✅ query   | ❌ Sin Server Action                  |
-| `cacheOrderStatus` / `getCachedOrderStatus` | ✅ queries | ❌ Sin wiring al crear/cambiar estado |
+| `cacheOrderStatus` / `getCachedOrderStatus` | ✅ queries | ✅ Cambios de estado pedido           |
+| Pool `delivery:available_orders`            | ✅         | `/repartidor/pedidos`                 |
+| Hash `delivery:available_order:<idPedido>`  | ✅         | Snapshot listado repartidor           |
+| Claim `order:claim:<idPedido>`              | ✅         | Claim atómico repartidor              |
 | Frescura GEO `delivery:location:fresh:<id>` | ❌         | `docs/GAPS.md`                       |
 | Toggle disponibilidad repartidor            | ❌         | Pantalla solo lectura                |
 
@@ -273,15 +313,15 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | 5     | Total pedido = Σ (precio × cantidad)                   | ✅      | `createPedidoFromCartSnapshot` en checkout                    |
 | 6     | Registrar establecimiento                              | ❌      | Sin CRUD UI                                                   |
 | 7     | `fecha_hora` automática en pedido                      | ✅      | Default en schema / insert                                    |
-| 8     | Flujo de estados + `cancelado`                         | ⚠️     | Enum en schema; sin mutación ni validación de transiciones    |
+| 8     | Flujo de estados + `cancelado`                         | ✅      | Server Actions con transiciones por rol                       |
 | 9     | Crear pedido (productos + dirección)                   | ✅      | Checkout con dirección elegida en `/carrito`                   |
-| 10    | Historial pedidos cliente (Cassandra)                  | ❌      | Mock en `/usuario/pedidos`                                    |
-| 11    | Repartidor: detalle pedido asignado                    | ❌      | Mock                                                          |
-| 12    | Admin: ver pedidos y confirmar/rechazar                | ⚠️     | Lista real; detalle y cambio estado mock                      |
+| 10    | Historial pedidos cliente (Cassandra)                  | ⚠️     | Real vía Postgres; Cassandra pendiente                        |
+| 11    | Repartidor: detalle pedido asignado                    | ✅      | Postgres scoped por `id_repartidor`                           |
+| 12    | Admin: ver pedidos y confirmar/rechazar                | ✅      | Lista/detalle real + cambio estado                            |
 | 13–15 | Promociones como entidad                               | ✅ N/A  | Eliminadas; `promocion_porcentaje` en producto                |
-| 16    | Asignar repartidor disponible                          | ❌      | Sin lógica                                                    |
-| 17    | Repartidor: en camino / entregado                      | ❌      | Sin persistencia                                              |
-| 18    | Consultar pedidos del repartidor                       | ❌      | Mock; query Cassandra sin UI                                  |
+| 16    | Asignar repartidor disponible                          | ⚠️     | Repartidor toma pedido desde pool Redis; no auto-asignación    |
+| 17    | Repartidor: en camino / entregado                      | ✅      | Server Action + Postgres + Redis status                       |
+| 18    | Consultar pedidos del repartidor                       | ⚠️     | Real vía Postgres; Cassandra pendiente                        |
 | 19    | Admin: agregar productos al menú                       | ✅      | Mongo `addCatalogProduct`                                     |
 | 20    | Marcar producto no disponible                          | ✅      | `setCatalogProductAvailability` (soft)                        |
 | 21    | Editar producto (precio, promo, disponible)            | ✅      | `/admin/productos/[idProducto]`                               |
@@ -306,8 +346,8 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | ------------------------------------------- | ------ | -------------------------------------------- |
 | Passwords texto plano en `cuenta_app`       | ❌      | Alta                                         |
 | Constraints de negocio en PostgreSQL        | ❌      | Alta                                         |
-| Pantallas mock → queries scoped             | 🔄     | Alta (checkout ✅; pedidos por rol pendiente) |
-| Detalles `[idPedido]` con autorización real | ❌      | Alta                                         |
+| Pantallas mock → queries scoped             | 🔄     | Alta (pedidos por rol ✅; dashboards pendiente) |
+| Detalles `[idPedido]` con autorización real | ✅      | Cerrado para admin/usuario/repartidor         |
 | Consumo MongoDB (perfiles, order_documents) | ❌      | Media                                        |
 | Redis frescura / TTL operacional            | ❌      | Media                                        |
 | Cassandra en analytics / historial          | ❌      | Media                                        |
@@ -326,7 +366,7 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | Catálogo admin            | MongoDB fuente de verdad (`ADR-014`, `ADR-022`) | `/admin/productos` lee/escribe `restaurant_catalogs`            |
 | Admin establecimientos    | Un admin = un local (`ADR-022`)                 | `/admin/local` scoped; `/admin/establecimientos` redirige       |
 | Signin                    | Pantalla pública pendiente (`ADR-017`)          | Form sin Server Action; copy menciona Supabase Auth             |
-| Componentes de pedido     | `PedidoConDetalle` (`types/domain.ts`)          | Listados/detalle por rol usan `MockPedidoVista`                 |
+| Componentes de pedido     | `PedidoConDetalle` (`types/domain.ts`)          | Detalles/listados por rol usan Postgres |
 | Total vs fees en checkout | `pedido.total` transaccional                    | Total PG = solo ítems; envío/tarifa simulados en UI del carrito |
 | Dirección en checkout     | Cliente elige dirección                         | Selector en `/carrito`; validación server con `getDireccionEntregaById` |
 | Ruta `/usuario/direcciones` | Nav o ruta dedicada                           | CRUD integrado en `/usuario` (perfil)                           |
@@ -338,8 +378,8 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 
 1. [x] Commitear y migrar snapshot `detalle_pedido` + snapshot Drizzle `0002`
 2. [x] Conectar checkout → `createPedidoFromCartSnapshot` (Server Action + auth `usuario`)
-3. [ ] Migrar `[idPedido]` y listados en admin / usuario / repartidor a queries reales + autorización
-4. [ ] Server Actions: cambio de estado pedido + cache Redis
+3. [x] Migrar `[idPedido]` y listados en admin / usuario / repartidor a queries reales + autorización
+4. [x] Server Actions: cambio de estado pedido + cache Redis
 5. [x] Direcciones: CRUD en `/usuario` + selector en checkout
 6. [ ] Fase 1.5: sync post-checkout (Mongo `order_documents`, Redis status, Cassandra evento)
 7. [x] Admin productos contra Mongo (CRUD) — ver ADR-022
@@ -410,6 +450,11 @@ Fotos de producto: campo `foto` (URL externa, típicamente CDN `images.rappi.com
 | 2026-06-08 | **IMPLEMENTACION.md:** sección admin operativo (archivos, Server Actions, `useActionState`, flujo catálogo/local, redirect post-alta)                                                                    |
 | 2026-06-08 | **Direcciones usuario:** CRUD Postgres en `/usuario`, `lib/usuario/*`, selector en `/carrito`, `confirmCartAction` con `idDireccion` validado                                                            |
 | 2026-06-08 | **Direcciones Suspense:** fetch movido a `UsuarioDirecciones` (server); UI interactiva en `UsuarioDireccionesView`; skeleton en `/usuario`                                                             |
+| 2026-06-08 | **Pedidos operativos:** detalle/listados por rol reales, cambio de estado admin/repartidor, pool Redis de pedidos disponibles y claim repartidor con `SET NX`                                      |
+| 2026-06-08 | **Repartidor resumen real:** `/repartidor` deja `mockRepartidorHub` y usa Postgres + Redis scoped por sesión                                                                                       |
+| 2026-06-08 | **Redis teoria e implementacion:** `docs/REDIS_MODELO_FISICO.md` cruza clave-valor, TTL, Set, Hash, atomicidad, `SET NX`, GEO y cache contra keys reales del proyecto                              |
+| 2026-06-08 | **Cruce teorico por motor:** Postgres, MongoDB y Cassandra documentan conceptos de cursada contra tablas, colecciones, keys, indices y patrones reales del proyecto                                  |
+| 2026-06-08 | **Redis Hash pedidos disponibles:** `/repartidor/pedidos` lista candidatos desde Hash snapshots (`HGETALL`) y evita una query Postgres por cada pedido disponible                                      |
 
 
 ---
@@ -420,4 +465,3 @@ Fotos de producto: campo `foto` (URL externa, típicamente CDN `images.rappi.com
 2. Si una ruta pasa de mock a real, moverla de sección en **Rutas**.
 3. Agregar fila en **Bitácora de avances** con fecha y resumen breve.
 4. Si se toma una decisión de diseño (ej. admin productos queda en Postgres), actualizar **Desalineaciones** y `docs/DECISIONES.md`.
-

@@ -1,5 +1,5 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
-import { EstadoPedido } from '@/types/domain'
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm"
+import { EstadoPedido } from "@/types/domain"
 import type {
   CuentaApp,
   DetallePedido,
@@ -8,10 +8,10 @@ import type {
   PedidoConDetalle,
   Producto,
   Repartidor,
-} from '@/types/domain'
-import type { QueryResult } from '../helpers'
-import { fail, ok, shouldUseMockData } from '../helpers'
-import { getDrizzleDb } from './drizzle'
+} from "@/types/domain"
+import type { QueryResult } from "../helpers"
+import { fail, ok, shouldUseMockData } from "../helpers"
+import { getDrizzleDb } from "./drizzle"
 import {
   mockCuentasApp,
   mockDireccionesEntrega,
@@ -19,7 +19,7 @@ import {
   mockPedidos,
   mockProductos,
   mockRepartidores,
-} from './mock'
+} from "./mock"
 import {
   cuentaApp,
   detallePedido,
@@ -28,7 +28,7 @@ import {
   pedido,
   producto,
   repartidor,
-} from './schema'
+} from "./schema"
 import type {
   CuentaAppSelect,
   DetallePedidoSelect,
@@ -37,7 +37,7 @@ import type {
   PedidoSelect,
   ProductoSelect,
   RepartidorSelect,
-} from './schema'
+} from "./schema"
 
 function mapDetalle(row: DetallePedidoSelect): DetallePedido {
   return {
@@ -136,7 +136,7 @@ function calculatePedidoTotal(items: CreatePedidoFromCartSnapshotItem[]) {
 }
 
 function validatePedidoSnapshotInput(input: CreatePedidoFromCartSnapshotInput) {
-  if (input.items.length === 0) return 'El pedido no tiene items.'
+  if (input.items.length === 0) return "El pedido no tiene items."
 
   const invalidItem = input.items.find(
     (item) =>
@@ -146,7 +146,7 @@ function validatePedidoSnapshotInput(input: CreatePedidoFromCartSnapshotInput) {
       item.precioUnitario < 0
   )
 
-  return invalidItem ? 'El pedido tiene items invalidos.' : null
+  return invalidItem ? "El pedido tiene items invalidos." : null
 }
 
 export async function createPedidoFromCartSnapshot(
@@ -222,7 +222,7 @@ export async function createPedidoFromCartSnapshot(
 
     return ok(result)
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to create pedido')
+    return fail(e instanceof Error ? e.message : "Failed to create pedido")
   }
 }
 
@@ -242,7 +242,7 @@ export async function getPedidos(): Promise<QueryResult<PedidoConDetalle[]>> {
     })
     return ok(rows.map(mapPedido))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch pedidos')
+    return fail(e instanceof Error ? e.message : "Failed to fetch pedidos")
   }
 }
 
@@ -260,7 +260,91 @@ export async function getPedidoById(
     })
     return ok(row ? mapPedido(row) : null)
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch pedido')
+    return fail(e instanceof Error ? e.message : "Failed to fetch pedido")
+  }
+}
+
+export async function updatePedidoEstado(
+  idPedido: number,
+  estado: EstadoPedido
+): Promise<QueryResult<PedidoConDetalle>> {
+  if (shouldUseMockData()) {
+    const item = mockPedidos.find((p) => p.idPedido === idPedido)
+    if (!item) return fail("Pedido no encontrado.")
+    item.estado = estado
+    return ok(item)
+  }
+
+  try {
+    const rows = await getDrizzleDb()
+      .update(pedido)
+      .set({ estado })
+      .where(eq(pedido.idPedido, idPedido))
+      .returning()
+
+    const row = rows[0]
+    if (!row) return fail("Pedido no encontrado.")
+
+    const detalles = await getDrizzleDb().query.detallePedido.findMany({
+      where: eq(detallePedido.idPedido, row.idPedido),
+    })
+
+    return ok(mapPedido({ ...row, detalles }))
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to update pedido")
+  }
+}
+
+export async function assignPedidoToRepartidor(
+  idPedido: number,
+  idRepartidor: number
+): Promise<QueryResult<PedidoConDetalle>> {
+  if (shouldUseMockData()) {
+    const item = mockPedidos.find((p) => p.idPedido === idPedido)
+    if (!item) return fail("Pedido no encontrado.")
+    if (item.idRepartidor != null) return fail("El pedido ya tiene repartidor.")
+    if (
+      item.estado !== EstadoPedido.Confirmado &&
+      item.estado !== EstadoPedido.Preparando
+    ) {
+      return fail("El pedido todavía no está disponible para reparto.")
+    }
+    item.idRepartidor = idRepartidor
+    return ok(item)
+  }
+
+  try {
+    const rows = await getDrizzleDb()
+      .update(pedido)
+      .set({ idRepartidor })
+      .where(
+        and(
+          eq(pedido.idPedido, idPedido),
+          isNull(pedido.idRepartidor),
+          inArray(pedido.estado, [
+            EstadoPedido.Confirmado,
+            EstadoPedido.Preparando,
+          ])
+        )
+      )
+      .returning()
+
+    const row = rows[0]
+    if (!row) {
+      return fail(
+        "El pedido ya tiene repartidor, no existe o no está disponible."
+      )
+    }
+
+    const detalles = await getDrizzleDb().query.detallePedido.findMany({
+      where: eq(detallePedido.idPedido, row.idPedido),
+    })
+
+    return ok(mapPedido({ ...row, detalles }))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : "Failed to assign pedido repartidor"
+    )
   }
 }
 
@@ -280,7 +364,7 @@ export async function getPedidosByEstado(
     return ok(rows.map(mapPedido))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch pedidos by estado'
+      e instanceof Error ? e.message : "Failed to fetch pedidos by estado"
     )
   }
 }
@@ -301,7 +385,7 @@ export async function getPedidosByCliente(
     return ok(rows.map(mapPedido))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch pedidos by cliente'
+      e instanceof Error ? e.message : "Failed to fetch pedidos by cliente"
     )
   }
 }
@@ -326,7 +410,7 @@ export async function getPedidosByEstablecimiento(
     return fail(
       e instanceof Error
         ? e.message
-        : 'Failed to fetch pedidos by establecimiento'
+        : "Failed to fetch pedidos by establecimiento"
     )
   }
 }
@@ -335,7 +419,9 @@ export async function getEstablecimientos(): Promise<
   QueryResult<Establecimiento[]>
 > {
   if (shouldUseMockData()) {
-    return ok([...mockEstablecimientos].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    return ok(
+      [...mockEstablecimientos].sort((a, b) => a.nombre.localeCompare(b.nombre))
+    )
   }
 
   try {
@@ -345,7 +431,7 @@ export async function getEstablecimientos(): Promise<
     return ok(rows.map(mapEstablecimiento))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch establecimientos'
+      e instanceof Error ? e.message : "Failed to fetch establecimientos"
     )
   }
 }
@@ -368,7 +454,7 @@ export async function getEstablecimientoById(
     return ok(row ? mapEstablecimiento(row) : null)
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch establecimiento'
+      e instanceof Error ? e.message : "Failed to fetch establecimiento"
     )
   }
 }
@@ -398,7 +484,7 @@ export async function updateEstablecimiento(
     )
 
     if (!item) {
-      return fail('Establecimiento no encontrado.')
+      return fail("Establecimiento no encontrado.")
     }
 
     Object.assign(item, payload)
@@ -414,13 +500,13 @@ export async function updateEstablecimiento(
 
     const row = rows[0]
     if (!row) {
-      return fail('Establecimiento no encontrado.')
+      return fail("Establecimiento no encontrado.")
     }
 
     return ok(mapEstablecimiento(row))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to update establecimiento'
+      e instanceof Error ? e.message : "Failed to update establecimiento"
     )
   }
 }
@@ -442,7 +528,7 @@ export async function getDireccionesByCliente(
     return ok(rows.map(mapDireccionEntrega))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch direcciones by cliente'
+      e instanceof Error ? e.message : "Failed to fetch direcciones by cliente"
     )
   }
 }
@@ -470,7 +556,7 @@ export async function getDireccionEntregaById(
     return ok(row ? mapDireccionEntrega(row) : null)
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch direccion entrega'
+      e instanceof Error ? e.message : "Failed to fetch direccion entrega"
     )
   }
 }
@@ -493,9 +579,11 @@ function normalizeDireccionEntregaInput(
   }
 }
 
-function validateDireccionEntregaInput(data: DireccionEntregaInput): string | null {
+function validateDireccionEntregaInput(
+  data: DireccionEntregaInput
+): string | null {
   if (!data.calle || !data.numero || !data.ciudad || !data.codigoPostal) {
-    return 'Completá todos los campos de la dirección.'
+    return "Completá todos los campos de la dirección."
   }
   return null
 }
@@ -542,13 +630,13 @@ export async function createDireccionEntrega(
 
     const row = rows[0]
     if (!row) {
-      return fail('No se pudo crear la dirección.')
+      return fail("No se pudo crear la dirección.")
     }
 
     return ok(mapDireccionEntrega(row))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to create direccion entrega'
+      e instanceof Error ? e.message : "Failed to create direccion entrega"
     )
   }
 }
@@ -570,7 +658,7 @@ export async function updateDireccionEntrega(
     )
 
     if (!item) {
-      return fail('Dirección no encontrada.')
+      return fail("Dirección no encontrada.")
     }
 
     Object.assign(item, payload)
@@ -591,13 +679,13 @@ export async function updateDireccionEntrega(
 
     const row = rows[0]
     if (!row) {
-      return fail('Dirección no encontrada.')
+      return fail("Dirección no encontrada.")
     }
 
     return ok(mapDireccionEntrega(row))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to update direccion entrega'
+      e instanceof Error ? e.message : "Failed to update direccion entrega"
     )
   }
 }
@@ -614,12 +702,12 @@ export async function deleteDireccionEntrega(
     )
 
     if (index === -1) {
-      return fail('Dirección no encontrada.')
+      return fail("Dirección no encontrada.")
     }
 
     if (await direccionHasPedidos(idDireccion)) {
       return fail(
-        'No se puede eliminar una dirección usada en pedidos existentes.'
+        "No se puede eliminar una dirección usada en pedidos existentes."
       )
     }
 
@@ -630,11 +718,11 @@ export async function deleteDireccionEntrega(
   try {
     const existing = await getDireccionEntregaById(idDireccion, idCliente)
     if (existing.error) return fail(existing.error)
-    if (!existing.data) return fail('Dirección no encontrada.')
+    if (!existing.data) return fail("Dirección no encontrada.")
 
     if (await direccionHasPedidos(idDireccion)) {
       return fail(
-        'No se puede eliminar una dirección usada en pedidos existentes.'
+        "No se puede eliminar una dirección usada en pedidos existentes."
       )
     }
 
@@ -650,13 +738,13 @@ export async function deleteDireccionEntrega(
 
     const row = rows[0]
     if (!row) {
-      return fail('Dirección no encontrada.')
+      return fail("Dirección no encontrada.")
     }
 
     return ok({ idDireccion: row.idDireccion })
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to delete direccion entrega'
+      e instanceof Error ? e.message : "Failed to delete direccion entrega"
     )
   }
 }
@@ -679,7 +767,7 @@ export async function getProductosByEstablecimiento(
     })
     return ok(rows.map(mapProducto))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch productos')
+    return fail(e instanceof Error ? e.message : "Failed to fetch productos")
   }
 }
 
@@ -696,7 +784,7 @@ export async function getRepartidoresDisponibles(): Promise<
     })
     return ok(rows.map(mapRepartidor))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch repartidores')
+    return fail(e instanceof Error ? e.message : "Failed to fetch repartidores")
   }
 }
 
@@ -715,7 +803,7 @@ export async function getRepartidorById(
     })
     return ok(row ? mapRepartidor(row) : null)
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Failed to fetch repartidor')
+    return fail(e instanceof Error ? e.message : "Failed to fetch repartidor")
   }
 }
 
@@ -735,7 +823,7 @@ export async function getPedidosByRepartidor(
     return ok(rows.map(mapPedido))
   } catch (e) {
     return fail(
-      e instanceof Error ? e.message : 'Failed to fetch pedidos by repartidor'
+      e instanceof Error ? e.message : "Failed to fetch pedidos by repartidor"
     )
   }
 }
@@ -765,7 +853,7 @@ export async function authenticateCuenta(
         item.email.toLowerCase() === normalizedEmail &&
         item.contrasenia === password
     )
-    if (!cuenta) return fail('Email o contraseña incorrectos.')
+    if (!cuenta) return fail("Email o contraseña incorrectos.")
     return ok(cuenta)
   }
 
@@ -774,11 +862,11 @@ export async function authenticateCuenta(
       where: eq(cuentaApp.email, normalizedEmail),
     })
     if (!row || row.contrasenia !== password) {
-      return fail('Email o contraseña incorrectos.')
+      return fail("Email o contraseña incorrectos.")
     }
     return ok(mapCuentaApp(row))
   } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Error al autenticar')
+    return fail(e instanceof Error ? e.message : "Error al autenticar")
   }
 }
 

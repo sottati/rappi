@@ -18,6 +18,36 @@ Implementacion actual:
   - `supabase/migrations/0002_detalle_pedido_snapshot.sql`;
 - queries: `lib/db/postgres/queries.ts`.
 
+## Cruce con teoria de la cursada
+
+Referencia: Clase I y material de modelo relacional/SQL visto en la cursada.
+
+| Concepto visto en teoria             | Relacional / SQL teorico                              | Aplicacion en Rappi                                                                                     |
+| ------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Tablas y columnas                    | Datos estructurados en filas y columnas               | `cliente`, `repartidor`, `establecimiento`, `pedido`, `detalle_pedido`, `cuenta_app`                     |
+| Modelo logico relacional             | Entidades y relaciones explicitas                     | El DLR del equipo define el nucleo: pedido vincula cliente, local, direccion y repartidor opcional       |
+| Clave primaria                       | Identificador unico de fila                           | `id_pedido`, `id_cliente`, `id_establecimiento`, `id_repartidor`, etc.                                   |
+| Clave foranea                        | Integridad referencial entre tablas                   | `pedido.id_cliente`, `pedido.id_establecimiento`, `pedido.id_direccion`, `detalle_pedido.id_pedido`      |
+| Transacciones / consistencia         | Cambios criticos deben quedar consistentes            | `createPedidoFromCartSnapshot` crea pedido + detalle como operacion transaccional                        |
+| Constraints                          | Reglas de dominio en la base                          | `not null`, `unique`, enums de estado/rol; faltan algunos checks de rangos documentados en gaps          |
+| SQL e indices                        | Consultas declarativas aceleradas por indices         | Indices por cliente/local/repartidor/estado para listados de pedidos por rol                             |
+| Normalizacion                        | Evitar duplicacion cuando hay relaciones fuertes      | Clientes, direcciones, repartidores y locales viven separados y se referencian desde `pedido`            |
+| Snapshot transaccional               | Guardar evidencia estable de un hecho de negocio      | `detalle_pedido` guarda nombre/precio/cantidad al cierre aunque el catalogo Mongo cambie                 |
+| Fuente de verdad transaccional       | El motor relacional conserva estado persistente final | Estado vigente, ownership, permisos y totales del pedido se deciden en PostgreSQL, no en Redis/Mongo     |
+
+### Lectura conceptual
+
+PostgreSQL se usa donde la teoria relacional es mas fuerte: integridad,
+relaciones obligatorias, constraints, transacciones, SQL e indices. En este
+proyecto decide que pedido existe, a que cliente/local/direccion pertenece, que
+estado tiene y que repartidor lo tomo.
+
+Los otros motores complementan, pero no reemplazan este nucleo:
+
+- MongoDB guarda catalogos/documentos flexibles;
+- Redis guarda estado vivo y locks temporales;
+- Cassandra guarda historicos y lecturas analiticas modeladas por query.
+
 ## Enums
 
 ```sql

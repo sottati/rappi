@@ -11,6 +11,29 @@
 --
 -- En Astra DB el keyspace se crea desde el panel/proveedor. Si se ejecuta en
 -- Cassandra local, crear un keyspace equivalente antes de correr estas tablas.
+--
+-- Cruce con teoria de la cursada
+-- Referencia: Clase 5 CQL, sobre Apache Cassandra y CQL.
+--
+-- | Concepto visto en teoria        | Cassandra/CQL teorico                         | Aplicacion en Rappi                                      |
+-- | ------------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+-- | Keyspace                        | Contenedor logico de tablas y configuracion   | `db_uade` agrupa las tablas historicas del proyecto      |
+-- | Modelado por consulta           | La tabla se disena desde la query a resolver  | `pedidos_por_cliente`, `pedidos_por_local`, rankings     |
+-- | Primary key compuesta           | Partition key + clustering columns            | `PRIMARY KEY ((id_cliente), fecha_hora, id_pedido)`      |
+-- | Partition key                   | Define donde vive el dato en el cluster       | `id_cliente`, `id_establecimiento`, `id_repartidor`, mes |
+-- | Clustering columns              | Ordenan filas dentro de una particion         | `fecha_hora`, `id_pedido`, `total_pedidos`               |
+-- | CLUSTERING ORDER BY             | Orden fisico/logico para lecturas ordenadas   | Historial DESC por fecha; ranking DESC por pedidos       |
+-- | Denormalizacion                 | Duplicar datos para evitar joins              | Se repiten nombres, totales, telefonos y estados         |
+-- | Sin joins como patron normal    | No se consulta como SQL relacional            | Cada pregunta tiene su tabla lista para leer             |
+-- | Evitar ALLOW FILTERING          | Filtrar fuera de la key degrada performance   | Las queries usan columnas de particion/clustering        |
+-- | Alta escritura / historico      | Bueno para eventos y lecturas append-oriented | Pedidos historicos, metricas diarias y calificaciones    |
+--
+-- Lectura conceptual:
+-- Cassandra no replica el modelo relacional de PostgreSQL. Se modela por
+-- pregunta: "pedidos de un cliente", "pedidos de un local", "pedidos de un
+-- repartidor", "metricas por dia" o "ranking mensual". Por eso hay tablas
+-- parecidas con datos repetidos. Esa duplicacion es intencional: evita joins y
+-- permite lecturas directas por particion.
 
 USE db_uade;
 

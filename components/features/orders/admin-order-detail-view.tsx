@@ -1,35 +1,46 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
+import { useActionState } from "react"
 
-import { OrderDetailView } from '@/components/features/orders/order-detail-view'
-import { OrderStatusBadge } from '@/components/features/orders/order-status-badge'
-import { Button } from '@/components/ui/button'
-import { EstadoPedido } from '@/types/domain'
-import { estadoPedidoLabels, type MockPedidoVista } from '@/lib/rappi'
+import {
+  OrderDetailView,
+  type OrderDetailPedido,
+} from "@/components/features/orders/order-detail-view"
+import { OrderStatusBadge } from "@/components/features/orders/order-status-badge"
+import { Button } from "@/components/ui/button"
+import {
+  updateAdminPedidoEstadoAction,
+  type OrderActionState,
+} from "@/lib/orders/actions"
+import { EstadoPedido } from "@/types/domain"
 
-const estadosOperativos = [
-  EstadoPedido.Confirmado,
-  EstadoPedido.Preparando,
-  EstadoPedido.EnCamino,
-  EstadoPedido.Entregado,
-  EstadoPedido.Cancelado,
-] as const
+const initialState: OrderActionState = {}
 
 interface AdminOrderDetailViewProps {
-  pedido: MockPedidoVista
+  pedido: OrderDetailPedido
 }
 
-export function AdminOrderDetailView({ pedido: initialPedido }: AdminOrderDetailViewProps) {
-  const [pedido, setPedido] = useState(initialPedido)
-  const [selectedEstado, setSelectedEstado] = useState(pedido.estado)
-  const [saved, setSaved] = useState(false)
-
-  const handleSave = () => {
-    setPedido((current) => ({ ...current, estado: selectedEstado }))
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 2000)
+function getAdminActions(estado: EstadoPedido) {
+  if (estado === EstadoPedido.Pendiente) {
+    return [
+      { estado: EstadoPedido.Confirmado, label: "Confirmar pedido" },
+      { estado: EstadoPedido.Cancelado, label: "Rechazar pedido" },
+    ]
   }
+
+  if (estado === EstadoPedido.Confirmado) {
+    return [{ estado: EstadoPedido.Preparando, label: "Marcar preparando" }]
+  }
+
+  return []
+}
+
+export function AdminOrderDetailView({ pedido }: AdminOrderDetailViewProps) {
+  const [state, formAction, pending] = useActionState(
+    updateAdminPedidoEstadoAction,
+    initialState
+  )
+  const actions = getAdminActions(pedido.estado)
 
   return (
     <div className="space-y-6">
@@ -42,37 +53,49 @@ export function AdminOrderDetailView({ pedido: initialPedido }: AdminOrderDetail
       <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
         <h2 className="mb-1 text-sm font-semibold">Acciones operativas</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Mock local: el cambio de estado no persiste al recargar.
+          El comercio confirma o rechaza pedidos pendientes. Los pedidos
+          confirmados quedan disponibles para repartidores.
         </p>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-2">
-            <label htmlFor="estado-pedido" className="text-sm text-muted-foreground">
-              Cambiar estado
-            </label>
-            <select
-              id="estado-pedido"
-              value={selectedEstado}
-              onChange={(event) => setSelectedEstado(event.target.value as EstadoPedido)}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              {estadosOperativos.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estadoPedidoLabels[estado]}
-                </option>
-              ))}
-            </select>
+        {actions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No hay acciones disponibles para el estado actual.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {actions.map((action) => (
+              <form key={action.estado} action={formAction}>
+                <input type="hidden" name="idPedido" value={pedido.idPedido} />
+                <input type="hidden" name="estado" value={action.estado} />
+                <Button
+                  type="submit"
+                  variant={
+                    action.estado === EstadoPedido.Cancelado
+                      ? "outline"
+                      : "default"
+                  }
+                  disabled={pending}
+                >
+                  {pending ? "Guardando..." : action.label}
+                </Button>
+              </form>
+            ))}
           </div>
+        )}
 
-          <Button type="button" onClick={handleSave}>
-            Guardar estado
-          </Button>
-        </div>
+        {state.error ? (
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            {state.error}
+          </p>
+        ) : null}
 
-        {saved ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-            <span>Estado actualizado a</span>
-            <OrderStatusBadge estado={selectedEstado} />
+        {state.success ? (
+          <div
+            className="mt-3 flex flex-wrap items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
+            role="status"
+          >
+            <span>{state.success}</span>
+            <OrderStatusBadge estado={pedido.estado} />
           </div>
         ) : null}
       </section>

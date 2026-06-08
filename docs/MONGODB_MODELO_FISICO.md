@@ -22,6 +22,35 @@ MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net
 MONGODB_DATABASE=rappi
 ```
 
+## Cruce con teoria de la cursada
+
+Referencia: Clase I y Clase 2 Parte B, sobre bases NoSQL documentales e intro a
+MongoDB.
+
+| Concepto visto en teoria         | MongoDB / documental teorico                         | Aplicacion en Rappi                                                                                         |
+| -------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Documento                        | Unidad completa con pares campo-valor                | `restaurant_catalogs`, `order_documents`, `user_profiles`, `reviews`, `user_activity`                        |
+| Coleccion                        | Conjunto de documentos relacionados                  | Una coleccion por tipo documental: catalogos, perfiles, documentos de pedido, reviews y actividad            |
+| JSON/BSON                        | Estructura con objetos y arrays                      | Catalogos con categorias, productos, tags, opciones, banners y metadata                                      |
+| Esquema flexible / polimorfico   | Documentos pueden variar en campos                   | Perfiles, reviews y actividad aceptan metadata o campos opcionales sin migrar tablas relacionales            |
+| Datos embebidos                  | Objetos/arreglos que se leen junto al documento      | Productos embebidos dentro de categorias en `restaurant_catalogs`; items/direccion embebidos en pedidos doc  |
+| Sin joins como eje del modelo    | Se diseña para leer documentos completos             | Catalogo publico se lee en una query por `idEstablecimiento`, sin join local-producto-categoria-opciones     |
+| Referencias por id               | Se enlaza con otras fuentes usando ids externos      | Documentos guardan `idPedido`, `idCliente`, `idEstablecimiento`, `idRepartidor` de PostgreSQL                |
+| Modelado por patron de lectura   | Embeder si se consulta junto; referenciar si no       | Catalogo embebe productos; pedido documental guarda snapshot; entidades transaccionales quedan en Postgres   |
+| Indices secundarios              | Aceleran filtros frecuentes                          | Indices por `idEstablecimiento`, `idCliente`, `idPedido`, texto de producto y fechas                         |
+| No fuente transaccional central  | No reemplaza integridad relacional                   | MongoDB no decide ownership, estado vigente ni permisos; eso queda en PostgreSQL                             |
+
+### Lectura conceptual
+
+MongoDB se usa para datos cuya forma natural es documental: un catalogo completo,
+un perfil enriquecido, una review con tags/fotos o un documento de pedido con
+snapshot. La teoria documental permite embeder lo que se lee junto y evolucionar
+campos sin migraciones relacionales.
+
+En este proyecto, MongoDB es fuente de verdad del catalogo publico y de datos
+flexibles. Cuando necesita relacionarse con el flujo transaccional, guarda ids
+de PostgreSQL, pero no valida integridad ni estado final del pedido.
+
 ## Criterio de modelado
 
 PostgreSQL conserva la integridad transaccional: pedidos, detalles, importes de

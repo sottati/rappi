@@ -1,22 +1,63 @@
-import Link from 'next/link'
+import Link from "next/link"
 
-import { OrderStatusBadge } from '@/components/features/orders/order-status-badge'
-import { StatCard } from '@/components/shared/stat-card'
+import { OrderStatusBadge } from "@/components/features/orders/order-status-badge"
+import { StatCard } from "@/components/shared/stat-card"
 import {
   formatArs,
   formatPedidoFecha,
   getRepartidorPedidoPath,
-  type RepartidorHubMock,
-  type MockPedidoVista,
-} from '@/lib/rappi'
+} from "@/lib/rappi"
+import type { EstadoPedido } from "@/types/domain"
 
-interface RepartidorHubProps {
-  hub: RepartidorHubMock
-  pedidoActivo: MockPedidoVista | null
-  pedidosRecientes: MockPedidoVista[]
+export interface RepartidorHubData {
+  perfil: {
+    idRepartidor: number
+    nombre: string
+    apellido: string
+    email: string
+    telefono: string
+    disponible: boolean
+  }
+  ubicacion: {
+    latitude: number | null
+    longitude: number | null
+    actualizadaLabel: string
+  }
+  kpis: Array<{
+    label: string
+    value: string
+    detail?: string
+  }>
+  accesosRapidos: Array<{
+    href: string
+    label: string
+    description: string
+  }>
 }
 
-export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: RepartidorHubProps) {
+export interface RepartidorPedidoResumen {
+  idPedido: number
+  fechaHora: Date
+  estado: EstadoPedido
+  total: number
+  establecimientoNombre: string
+  direccion?: {
+    calle: string
+    numero: string
+  }
+}
+
+interface RepartidorHubProps {
+  hub: RepartidorHubData
+  pedidoActivo: RepartidorPedidoResumen | null
+  pedidosRecientes: RepartidorPedidoResumen[]
+}
+
+export function RepartidorHub({
+  hub,
+  pedidoActivo,
+  pedidosRecientes,
+}: RepartidorHubProps) {
   const { perfil, ubicacion, kpis, accesosRapidos } = hub
 
   return (
@@ -33,18 +74,23 @@ export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: Repartido
           <span
             className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium ${
               perfil.disponible
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : 'bg-muted text-muted-foreground'
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "bg-muted text-muted-foreground"
             }`}
           >
-            {perfil.disponible ? '● Disponible' : '○ No disponible'}
+            {perfil.disponible ? "● Disponible" : "○ No disponible"}
           </span>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
-          <StatCard key={kpi.label} label={kpi.label} value={kpi.value} detail={kpi.detail} />
+          <StatCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.value}
+            detail={kpi.detail}
+          />
         ))}
       </div>
 
@@ -62,12 +108,16 @@ export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: Repartido
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Local</p>
-              <p className="font-medium">{pedidoActivo.establecimientoNombre}</p>
+              <p className="font-medium">
+                {pedidoActivo.establecimientoNombre}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Destino</p>
               <p className="font-medium">
-                {pedidoActivo.direccion.calle} {pedidoActivo.direccion.numero}
+                {pedidoActivo.direccion
+                  ? `${pedidoActivo.direccion.calle} ${pedidoActivo.direccion.numero}`
+                  : "Sin dato"}
               </p>
             </div>
             <div>
@@ -87,15 +137,19 @@ export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: Repartido
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
-          <h2 className="mb-4 text-sm font-semibold">Ubicación (Redis mock)</h2>
+          <h2 className="mb-4 text-sm font-semibold">Ubicación</h2>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">Latitud</dt>
-              <dd className="font-medium tabular-nums">{ubicacion.latitude}</dd>
+              <dd className="font-medium tabular-nums">
+                {ubicacion.latitude ?? "Sin dato"}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Longitud</dt>
-              <dd className="font-medium tabular-nums">{ubicacion.longitude}</dd>
+              <dd className="font-medium tabular-nums">
+                {ubicacion.longitude ?? "Sin dato"}
+              </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-muted-foreground">Última actualización</dt>
@@ -107,7 +161,9 @@ export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: Repartido
         <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-semibold">Pedidos recientes</h2>
           {pedidosRecientes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin entregas asignadas.</p>
+            <p className="text-sm text-muted-foreground">
+              Sin entregas asignadas.
+            </p>
           ) : (
             <ul className="divide-y">
               {pedidosRecientes.map((pedido) => (
@@ -117,7 +173,9 @@ export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: Repartido
                     className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-primary"
                   >
                     <div className="min-w-0">
-                      <p className="font-medium">#{pedido.idPedido} · {pedido.establecimientoNombre}</p>
+                      <p className="font-medium">
+                        #{pedido.idPedido} · {pedido.establecimientoNombre}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {formatPedidoFecha(pedido.fechaHora)}
                       </p>
@@ -149,7 +207,9 @@ export function RepartidorHub({ hub, pedidoActivo, pedidosRecientes }: Repartido
               className="block p-4 transition-colors hover:bg-muted"
             >
               <p className="text-sm font-medium">{acceso.label}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">{acceso.description}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {acceso.description}
+              </p>
             </Link>
           ))}
         </div>

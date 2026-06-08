@@ -1,34 +1,12 @@
-import {
-  OrderList,
-  type OrderListItem,
-} from '@/components/features/orders/order-list'
-import { ErrorState } from '@/components/shared/query-state'
-import { requireSession } from '@/lib/auth/require-session'
-import { postgres } from '@/lib/db'
-import { getAdminPedidoPath } from '@/lib/rappi'
-import type { Establecimiento, PedidoConDetalle } from '@/types/domain'
-
-function toOrderListItem(
-  pedido: PedidoConDetalle,
-  establecimientos: Establecimiento[]
-): OrderListItem {
-  const establecimiento = establecimientos.find(
-    (item) => item.idEstablecimiento === pedido.idEstablecimiento
-  )
-
-  return {
-    idPedido: pedido.idPedido,
-    estado: pedido.estado,
-    fechaHora: pedido.fechaHora,
-    total: pedido.total,
-    establecimientoNombre:
-      establecimiento?.nombre ?? `Local #${pedido.idEstablecimiento}`,
-    lineas: pedido.detalles,
-  }
-}
+import { OrderList } from "@/components/features/orders/order-list"
+import { ErrorState } from "@/components/shared/query-state"
+import { requireSession } from "@/lib/auth/require-session"
+import { postgres } from "@/lib/db"
+import { toOrderListItem } from "@/lib/orders/view-model"
+import { getAdminPedidoPath } from "@/lib/rappi"
 
 export default async function AdminPedidosPage() {
-  const session = await requireSession('admin')
+  const session = await requireSession("admin")
   const idEstablecimiento = session.idEstablecimiento
 
   if (idEstablecimiento == null) {

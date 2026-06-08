@@ -208,3 +208,12 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Contexto:** ADR-014 define MongoDB como fuente del catalogo publico. El panel admin editaba la tabla `producto` en PostgreSQL, desalineada con `/restaurantes/[id]`.
 - **Decision:** El admin CRUD de productos opera sobre `restaurant_catalogs` (MongoDB): alta, edicion, soft delete via `disponible: false`. El perfil enriquecido del local vive en `restaurant_profiles`. Los datos core (`nombre`, `tipo`, `direccion`, `telefono`) se editan en PostgreSQL `establecimiento`; al guardar se sincroniza `nombre`/`tipo` al header del catalogo Mongo. El email del establecimiento queda read-only en UI (unique en PG). La tabla `producto` en Postgres queda legacy del seed; no se usa en el panel admin.
 - **Consecuencias:** +Cambios del admin se ven en el catalogo publico, +demuestra multibase con responsabilidades claras. Como contra, hay que mantener sync acotado PG→Mongo en nombre/tipo del catalogo.
+
+---
+
+## ADR-024: Redis como pool operacional de pedidos disponibles
+
+- **Estado:** Aceptada
+- **Contexto:** El flujo operativo necesita que repartidores vean rapido pedidos que el comercio ya acepto y que solo un repartidor pueda tomar cada pedido. PostgreSQL sigue siendo la fuente de verdad del pedido, pero no conviene usarlo como mecanismo de carrera/descubrimiento rapido.
+- **Decision:** El comercio confirma/rechaza desde Postgres. Cuando un pedido pasa a `confirmado` o `preparando`, se publica su id en Redis (`delivery:available_orders`). Cuando un repartidor lo toma, primero reclama `order:claim:<idPedido>` con `SET NX`; si gana, se asigna `pedido.id_repartidor` en Postgres y se remueve del pool Redis. Los cambios de estado tambien actualizan `order:status:<idPedido>`.
+- **Consecuencias:** +Redis aporta baja latencia y claim atomico, +Postgres mantiene consistencia e historial operativo, +el flujo queda explicable para la demo. Como contra, si Redis pierde el pool se puede reconstruir desde Postgres con pedidos `confirmado/preparando` sin repartidor.
