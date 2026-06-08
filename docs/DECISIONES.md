@@ -190,3 +190,21 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Contexto:** El catalogo publico y sus productos viven en MongoDB como fuente documental. Mantener `detalle_pedido.id_producto` como FK obligatoria contra PostgreSQL fuerza a duplicar el catalogo en dos motores y contradice el reparto de responsabilidades.
 - **Decision:** `detalle_pedido` debe guardar un snapshot del item comprado: `id_producto_catalogo`, `nombre_producto`, `cantidad` y `precio_unitario`. Ese snapshot se persiste al confirmar el pedido y queda como evidencia transaccional aunque el catalogo MongoDB cambie luego. En esta etapa, checkout no agrega una query extra para revalidar los productos contra MongoDB: si el item llego al carrito desde el catalogo, se considera valido para la demo.
 - **Consecuencias:** +Evita duplicar el catalogo como fuente de verdad en PostgreSQL, +preserva trazabilidad de precios/nombres al momento de compra, +simplifica checkout. Como contra, las pantallas historicas deben usar el snapshot del detalle y no asumir que pueden reconstruir el item desde `producto`.
+
+---
+
+## ADR-022: Panel admin scoped 1:1 con establecimiento
+
+- **Estado:** Aceptada
+- **Contexto:** Cada cuenta `admin` en `cuenta_app` tiene `id_establecimiento`. El panel debe operar solo sobre ese local, no listar ni editar establecimientos ajenos.
+- **Decision:** El admin gestiona un unico local via `/admin/local` (datos operativos + perfil comercial) y rutas hijas scoped (`/admin/productos`, `/admin/pedidos`). `/admin/establecimientos` redirige a `/admin/local`. Toda mutacion valida `session.idEstablecimiento` en Server Actions (`lib/admin/scope.ts`).
+- **Consecuencias:** +Modelo de permisos simple y explicable, +UI alineada al DLR. Como contra, alta de nuevos establecimientos queda fuera del panel (seed o rol futuro).
+
+---
+
+## ADR-023: CRUD admin de catalogo y perfil en MongoDB
+
+- **Estado:** Aceptada
+- **Contexto:** ADR-014 define MongoDB como fuente del catalogo publico. El panel admin editaba la tabla `producto` en PostgreSQL, desalineada con `/restaurantes/[id]`.
+- **Decision:** El admin CRUD de productos opera sobre `restaurant_catalogs` (MongoDB): alta, edicion, soft delete via `disponible: false`. El perfil enriquecido del local vive en `restaurant_profiles`. Los datos core (`nombre`, `tipo`, `direccion`, `telefono`) se editan en PostgreSQL `establecimiento`; al guardar se sincroniza `nombre`/`tipo` al header del catalogo Mongo. El email del establecimiento queda read-only en UI (unique en PG). La tabla `producto` en Postgres queda legacy del seed; no se usa en el panel admin.
+- **Consecuencias:** +Cambios del admin se ven en el catalogo publico, +demuestra multibase con responsabilidades claras. Como contra, hay que mantener sync acotado PG→Mongo en nombre/tipo del catalogo.

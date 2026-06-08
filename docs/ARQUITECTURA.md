@@ -178,9 +178,11 @@ Estado actual:
 | `/signin`                    | Implementada visualmente; registro real pendiente         |
 | `/restaurantes`              | Implementada con contenido publico/mock                   |
 | `/carrito`                   | Implementada con contenido publico/mock                   |
-| `/admin`                     | Implementada: resumen                                     |
-| `/admin/establecimientos`    | Implementada: listado                                     |
-| `/admin/productos`           | Implementada con query scoped por establecimiento         |
+| `/admin`                     | Implementada: resumen (mock KPIs)                         |
+| `/admin/local`               | Implementada: CRUD datos operativos + perfil comercial    |
+| `/admin/establecimientos`    | Redirect a `/admin/local`                                 |
+| `/admin/productos`           | Implementada: catálogo Mongo scoped + CRUD                |
+| `/admin/productos/[idProducto]`, `/nuevo` | Implementadas: edición/alta producto      |
 | `/admin/pedidos`             | Implementada con query scoped por establecimiento         |
 | `/repartidor`                | Implementada: resumen                                     |
 | `/repartidor/disponibilidad` | Implementada con repartidor de sesion + Redis             |
@@ -189,7 +191,7 @@ Estado actual:
 
 | Rol          | Alcance                                                                                     |
 | ------------ | ------------------------------------------------------------------------------------------- |
-| `admin`      | Duenio/gestor de establecimiento. Ve sus establecimientos, productos, pedidos y analiticas. |
+| `admin`      | Duenio/gestor de un establecimiento (`id_establecimiento`). CRUD de su local, catálogo Mongo y pedidos. |
 | `repartidor` | Ve pedidos asignados y administra disponibilidad/estado.                                    |
 | `usuario`    | Consumidor final. Ve establecimientos, productos, sus pedidos y direcciones.                |
 

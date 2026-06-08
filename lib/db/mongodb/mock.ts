@@ -1,4 +1,27 @@
-import type { RestaurantCatalog, Review, UserActivity } from './types'
+import type { RestaurantCatalog, RestaurantProfile, Review, UserActivity } from './types'
+
+export const mockRestaurantProfiles: RestaurantProfile[] = [
+  {
+    idEstablecimiento: 1,
+    nombre: 'Burger Palermo',
+    descripcionComercial: 'Local demo para validar catalogo y pedidos.',
+    horarios: [{ dia: 'lunes-domingo', abre: '11:00', cierra: '23:30' }],
+    zonasEntrega: ['Palermo', 'Recoleta'],
+    mediosPago: ['tarjeta', 'efectivo'],
+    metadata: { dataset: 'demo' },
+    updatedAt: new Date('2026-05-20T17:45:00Z'),
+  },
+  {
+    idEstablecimiento: 2,
+    nombre: 'Sushi Centro',
+    descripcionComercial: 'Sushi y pokes en el centro de la ciudad.',
+    horarios: [{ dia: 'lunes-domingo', abre: '12:00', cierra: '23:00' }],
+    zonasEntrega: ['Centro', 'San Nicolas'],
+    mediosPago: ['tarjeta'],
+    metadata: { dataset: 'demo' },
+    updatedAt: new Date('2026-05-20T17:45:00Z'),
+  },
+]
 
 export const mockRestaurantCatalogs: RestaurantCatalog[] = [
   {

@@ -3,7 +3,6 @@
 import {
   Analytics01Icon,
   DashboardSquare01Icon,
-  DeliveryTruck01Icon,
   Home01Icon,
   Location01Icon,
   Motorbike01Icon,
@@ -36,6 +35,7 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { RappiLogo, RappiWordmark } from '@/components/rappi-logo'
 
 interface NavItem {
   href: string
@@ -45,7 +45,7 @@ interface NavItem {
 
 interface RoleShellProps {
   title: string
-  eyebrow: string
+  // eyebrow: string
   description: string
   navItems: NavItem[]
   userLabel: string
@@ -55,6 +55,7 @@ interface RoleShellProps {
 const fallbackIcons: Record<string, IconSvgElement> = {
   Resumen: DashboardSquare01Icon,
   Establecimientos: Restaurant01Icon,
+  'Mi establecimiento': Restaurant01Icon,
   Productos: Package01Icon,
   Pedidos: ShoppingBag01Icon,
   Analytics: Analytics01Icon,
@@ -70,7 +71,7 @@ function isActivePath(pathname: string, href: string) {
 
 export function RoleShell({
   title,
-  eyebrow,
+  // eyebrow,
   description,
   navItems,
   userLabel,
@@ -81,22 +82,21 @@ export function RoleShell({
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild tooltip={title}>
-                <Link href="/">
-                  <HugeiconsIcon icon={DeliveryTruck01Icon} strokeWidth={2} />
-                  <span className="font-semibold">Rappi Data</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <SidebarHeader className="px-4 py-6">
+          <Link
+            href="/"
+            aria-label="Rappi"
+            className="flex shrink-0 outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/40 rounded-sm group-data-[collapsible=icon]:justify-center"
+          >
+            <div className="flex items-center gap-2">
+              <RappiLogo className="h-[18px] w-14 shrink-0 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-10" />
+              <RappiWordmark className="h-[18px] w-auto shrink-0 group-data-[collapsible=icon]:hidden" />
+            </div>
+          </Link>
         </SidebarHeader>
-
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>{eyebrow}</SidebarGroupLabel>
+            {/* <SidebarGroupLabel>{eyebrow}</SidebarGroupLabel> */}
             <SidebarGroupContent>
               <SidebarMenu>
                 {navItems.map((item) => {
@@ -121,7 +121,6 @@ export function RoleShell({
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-
         <SidebarSeparator />
         <SidebarFooter>
           <SidebarMenu>
@@ -144,9 +143,9 @@ export function RoleShell({
           <header className="flex min-h-16 items-center gap-3 border-b px-4 sm:px-6 lg:px-8">
             <SidebarTrigger />
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-normal text-primary">
+              {/* <p className="text-xs font-semibold uppercase tracking-normal text-primary">
                 {eyebrow}
-              </p>
+              </p> */}
               <h1 className="truncate text-lg font-semibold tracking-normal sm:text-xl">
                 {title}
               </h1>

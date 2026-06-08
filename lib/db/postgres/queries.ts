@@ -373,6 +373,58 @@ export async function getEstablecimientoById(
   }
 }
 
+export interface UpdateEstablecimientoInput {
+  nombre: string
+  tipo: string
+  direccion: string
+  telefono: string
+}
+
+export async function updateEstablecimiento(
+  idEstablecimiento: number,
+  data: UpdateEstablecimientoInput
+): Promise<QueryResult<Establecimiento>> {
+  const payload = {
+    nombre: data.nombre.trim(),
+    tipo: data.tipo.trim(),
+    direccion: data.direccion.trim(),
+    telefono: data.telefono.trim(),
+  }
+
+  if (shouldUseMockData()) {
+    const item = mockEstablecimientos.find(
+      (establecimientoItem) =>
+        establecimientoItem.idEstablecimiento === idEstablecimiento
+    )
+
+    if (!item) {
+      return fail('Establecimiento no encontrado.')
+    }
+
+    Object.assign(item, payload)
+    return ok(item)
+  }
+
+  try {
+    const rows = await getDrizzleDb()
+      .update(establecimiento)
+      .set(payload)
+      .where(eq(establecimiento.idEstablecimiento, idEstablecimiento))
+      .returning()
+
+    const row = rows[0]
+    if (!row) {
+      return fail('Establecimiento no encontrado.')
+    }
+
+    return ok(mapEstablecimiento(row))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to update establecimiento'
+    )
+  }
+}
+
 export async function getDireccionesByCliente(
   idCliente: number
 ): Promise<QueryResult<DireccionEntrega[]>> {

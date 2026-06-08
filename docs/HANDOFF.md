@@ -20,8 +20,7 @@ La app ya tiene:
   - Upstash Redis;
   - Cassandra/DataStax Astra.
 - Primeras pantallas consumiendo datos filtrados por sesion:
-  - `/admin/pedidos`;
-  - `/admin/productos`;
+  - `/admin/local`, `/admin/productos` (Mongo), `/admin/pedidos`;
   - `/usuario`;
   - `/repartidor/disponibilidad`.
 
@@ -119,7 +118,9 @@ Server Component -> lib/db/<motor>/queries -> props -> UI
 
 | Objetivo              | Archivos principales                                      |
 | --------------------- | --------------------------------------------------------- |
+| CRUD admin local/catálogo | `lib/admin/actions.ts`, `lib/admin/scope.ts`, `app/admin/local/`, `app/admin/productos/` |
 | Nueva query Postgres  | `lib/db/postgres/queries.ts`, `lib/db/postgres/schema.ts` |
+| Nueva query MongoDB   | `lib/db/mongodb/queries.ts`, `lib/db/mongodb/types.ts`    |
 | Nueva pantalla de rol | `app/<rol>/.../page.tsx`, `components/features/...`       |
 | Cambiar login/sesion  | `lib/auth/*`, `components/features/auth/*`                |
 | Cambiar seed demo     | `scripts/seed-test-users.ts`, `docs/MODELO_DATOS.md`      |

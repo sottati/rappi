@@ -16,7 +16,7 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | Login y sesión por rol | ✅ Funcional (+ callback `?next=`) |
 | Flujo de compra end-to-end | ✅ Checkout persiste en Postgres |
 | Detalle de pedidos por rol | ❌ Mayormente mock |
-| CRUD operativo (productos, direcciones, estados) | ❌ Pendiente |
+| CRUD operativo (productos, direcciones, estados) | ⚠️ Parcial (admin catálogo + local ✅; pedidos/direcciones/estados pendiente) |
 | Analytics / Cassandra en UI | ❌ Sin pantallas |
 | Sincronización multibase post-checkout | ❌ Pendiente (Fase 1.5) |
 | Seguridad producción (hash, constraints, tests) | ❌ Pendiente |
@@ -48,6 +48,48 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 
 ---
 
+## Cambios recientes (Admin operativo — catálogo y local)
+
+| Ítem | Estado | Notas |
+|------|--------|-------|
+| Panel scoped 1:1 (`ADR-022`) | ✅ | `session.idEstablecimiento` en páginas y Server Actions |
+| `/admin/local` | ✅ | Postgres (`establecimiento`) + Mongo (`restaurant_profiles`) |
+| `/admin/productos` (+ nuevo / `[idProducto]`) | ✅ | CRUD sobre `restaurant_catalogs` (`ADR-023`) |
+| `lib/admin/scope.ts` | ✅ | `getAdminScope()` — auth + rol + establecimiento |
+| `lib/admin/actions.ts` | ✅ | Server Actions con `revalidatePath` |
+| `lib/admin/catalog-helpers.ts` | ✅ | IDs, categorías, flatten para listado |
+| Sync PG → Mongo al editar local | ✅ | `syncCatalogHeader` + `upsertRestaurantProfile` (nombre) |
+| Soft delete producto | ✅ | `setCatalogProductAvailability` (`disponible: false`) |
+| Redirect post-alta producto | ✅ | `redirect(/admin/productos/[id])` tras crear |
+| Tabla `producto` en Postgres (panel admin) | ⚠️ legacy | Seed/demo; el panel ya no la usa para CRUD |
+
+### Archivos clave
+
+| Capa | Archivos |
+|------|----------|
+| Rutas | `app/admin/local/page.tsx`, `app/admin/productos/page.tsx`, `app/admin/productos/nuevo/page.tsx`, `app/admin/productos/[idProducto]/page.tsx` |
+| Redirect legacy | `app/admin/establecimientos/page.tsx` → `/admin/local` |
+| Formularios (client) | `components/features/admin/admin-local-forms.tsx`, `admin-product-form.tsx` |
+| Listado (client) | `components/features/admin/admin-product-list.tsx` |
+| Mutaciones (server) | `lib/admin/actions.ts` |
+| Queries Mongo | `addCatalogProduct`, `updateCatalogProduct`, `setCatalogProductAvailability`, `getRestaurantCatalogProduct`, `upsertRestaurantProfile`, `syncCatalogHeader` en `lib/db/mongodb/queries.ts` |
+| Queries Postgres | `updateEstablecimiento`, `getEstablecimientoById` en `lib/db/postgres/queries.ts` |
+
+### Server Actions (`lib/admin/actions.ts`)
+
+| Action | Formulario | Motor | Comportamiento post-éxito |
+|--------|------------|-------|---------------------------|
+| `updateEstablecimientoAction` | `AdminEstablecimientoForm` | Postgres + sync Mongo | Mensaje en pantalla (`success`) |
+| `updateRestaurantProfileAction` | `AdminPerfilComercialForm` | Mongo `restaurant_profiles` | Mensaje en pantalla |
+| `saveCatalogProductAction` | `AdminProductForm` | Mongo `restaurant_catalogs` | **Alta:** `redirect` a `/admin/productos/[id]` · **Edición:** mensaje en pantalla |
+| `setProductAvailabilityAction` | `AdminProductAvailabilityToggle` | Mongo (soft delete) | Mensaje en pantalla |
+
+Los formularios usan `useActionState(action, initialState)` de React 19: el `<form action={formAction}>` invoca la Server Action en el servidor; `state` muestra `error` / `success`; `pending` deshabilita el botón. Patrón análogo a `components/features/auth/login-form.tsx`.
+
+Cuenta demo admin: `admin@burger.example` / `test123` → Burger Palermo (`id_establecimiento: 1`).
+
+---
+
 ## Rutas
 
 ### Implementadas con datos reales
@@ -60,8 +102,11 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | `/restaurantes/.../productos/[idProducto]` | Postgres + Mongo | Detalle producto |
 | `/carrito` | Zustand + Postgres (checkout) | Público para ver; confirmar requiere `usuario` |
 | `/carrito/confirmacion` | Postgres | `getPedidoById` scoped por `id_cliente` |
+| `/admin/local` | Postgres + Mongo | `AdminEstablecimientoForm` + `AdminPerfilComercialForm` |
+| `/admin/productos` | Mongo | Listado scoped; link a alta y edición |
+| `/admin/productos/nuevo` | Mongo | Alta vía `saveCatalogProductAction` → redirect a detalle |
+| `/admin/productos/[idProducto]` | Mongo | Edición + toggle disponibilidad |
 | `/admin/pedidos` | Postgres | Scoped por `id_establecimiento` |
-| `/admin/productos` | Postgres | Scoped; **lee `producto` PG, no catálogo Mongo** |
 | `/usuario` | Postgres | Resumen scoped por `id_cliente` |
 | `/repartidor/disponibilidad` | Postgres + Redis | Solo lectura |
 
@@ -70,7 +115,7 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | Ruta | Estado | Debería usar |
 |------|--------|--------------|
 | `/admin` | ⚠️ Mock | Postgres scoped + Cassandra métricas |
-| `/admin/establecimientos` | ⚠️ Lista real sin scope de sesión | Filtrar por `session.idEstablecimiento` |
+| `/admin/establecimientos` | ✅ Redirect | Redirige a `/admin/local` |
 | `/admin/pedidos/[idPedido]` | ❌ Mock | `getPedidoById` + autorización + update estado |
 | `/repartidor` | ❌ Mock | Postgres + Redis |
 | `/repartidor/pedidos` | ❌ Mock | `getPedidosByRepartidor` |
@@ -84,8 +129,7 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | Ruta | Referencia |
 |------|------------|
 | `/admin/analytics` | `AGENTS.md`, `MODELO_DATOS.md` |
-| `/admin/establecimientos/[idEstablecimiento]` | `README.md`, links desde listado admin |
-| `/admin/productos/[idProducto]` | `README.md` |
+| `/admin/establecimientos/[idEstablecimiento]` | `README.md`, links legacy | Reemplazado por `/admin/local` |
 | `/usuario/establecimientos` | Nav en `usuario/layout.tsx` |
 | `/usuario/direcciones` | Nav en `usuario/layout.tsx` |
 
@@ -99,7 +143,8 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 |-------------------|--------|-------------|
 | `authenticateCuenta` | ✅ | `/login` |
 | `getEstablecimientos` / `getEstablecimientoById` | ✅ | Público + admin + confirmación |
-| `getProductosByEstablecimiento` | ✅ | `/admin/productos` |
+| `getProductosByEstablecimiento` | ⚠️ legacy | Ya no usada en admin; catálogo admin en Mongo |
+| `updateEstablecimiento` | ✅ | `/admin/local` |
 | `getPedidos` / `getPedidoById` / filtros por rol | ✅ queries | ⚠️ Listado admin + confirmación; resto mock |
 | `createPedidoFromCartSnapshot` | ✅ | `/carrito` → `confirmCartAction` |
 | `getDireccionesByCliente` | ✅ | Checkout (primera dirección) |
@@ -119,10 +164,12 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | `getRestaurantCatalogProduct` | ✅ | Detalle producto |
 | `getRestaurantReviews` / `createReview` | ✅ queries | ❌ Sin pantalla |
 | `getUserActivity` | ✅ query | ❌ Sin pantalla |
-| `getRestaurantProfile` | ❌ | Hero con datos hardcodeados |
-| `getOrderDocument` | ❌ | — |
-| `getUserProfile` | ❌ | — |
-| CRUD catálogo (alta / editar / disponible) | ❌ | Admin usa Postgres |
+| `getRestaurantProfile` | ✅ | `/admin/local` |
+| `upsertRestaurantProfile` | ✅ | `/admin/local` |
+| `syncCatalogHeader` | ✅ | Sync nombre/tipo al editar local |
+| `addCatalogProduct` / `updateCatalogProduct` | ✅ | `/admin/productos/*` |
+| `setCatalogProductAvailability` | ✅ | Soft delete / reactivar producto |
+| CRUD catálogo (alta / editar / disponible) | ✅ | Admin panel Mongo |
 | `order_documents` post-checkout | ❌ | Fase 1.5 |
 
 ### Redis
@@ -168,9 +215,9 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | 16 | Asignar repartidor disponible | ❌ | Sin lógica |
 | 17 | Repartidor: en camino / entregado | ❌ | Sin persistencia |
 | 18 | Consultar pedidos del repartidor | ❌ | Mock; query Cassandra sin UI |
-| 19 | Admin: agregar productos al menú | ❌ | Sin CRUD; admin lee Postgres no Mongo |
-| 20 | Marcar producto no disponible | ❌ | Sin UI |
-| 21 | Editar producto (precio, promo, disponible) | ❌ | Sin UI |
+| 19 | Admin: agregar productos al menú | ✅ | Mongo `addCatalogProduct` |
+| 20 | Marcar producto no disponible | ✅ | `setCatalogProductAvailability` (soft) |
+| 21 | Editar producto (precio, promo, disponible) | ✅ | `/admin/productos/[idProducto]` |
 | 22 | Cliente: explorar catálogo | ✅ | Mongo; falta filtro por tipo en UI |
 | 23–27 | Promociones CRUD / vigencia / monto mínimo | ✅ N/A | No aplica |
 | 28 | Registrar repartidor | ❌ | Sin UI |
@@ -205,8 +252,8 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 
 | Tema | Docs dicen | Código hace |
 |------|------------|-------------|
-| Catálogo admin | MongoDB fuente de verdad (`ADR-014`) | `/admin/productos` lee tabla `producto` en Postgres |
-| Admin establecimientos | Scoped por sesión (`HANDOFF.md`) | Lista todos los establecimientos |
+| Catálogo admin | MongoDB fuente de verdad (`ADR-014`, `ADR-022`) | `/admin/productos` lee/escribe `restaurant_catalogs` |
+| Admin establecimientos | Un admin = un local (`ADR-022`) | `/admin/local` scoped; `/admin/establecimientos` redirige |
 | Signin | Pantalla pública pendiente (`ADR-017`) | Form sin Server Action; copy menciona Supabase Auth |
 | Componentes de pedido | `PedidoConDetalle` (`types/domain.ts`) | Listados/detalle por rol usan `MockPedidoVista` |
 | Total vs fees en checkout | `pedido.total` transaccional | Total PG = solo ítems; envío/tarifa simulados en UI del carrito |
@@ -222,7 +269,7 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 4. [ ] Server Actions: cambio de estado pedido + cache Redis
 5. [ ] Direcciones: CRUD + `/usuario/direcciones` + selector en checkout
 6. [ ] Fase 1.5: sync post-checkout (Mongo `order_documents`, Redis status, Cassandra evento)
-7. [ ] Admin productos contra Mongo (CRUD) o documentar excepción Postgres
+7. [x] Admin productos contra Mongo (CRUD) — ver ADR-022
 8. [ ] Rutas faltantes: `/usuario/establecimientos`, `/admin/analytics`
 9. [ ] Calificaciones + historial Cassandra en UI
 10. [ ] Hash passwords, constraints SQL, tests básicos
@@ -245,12 +292,46 @@ Cuenta demo: `ana.perez@example.com` / `test123` (`id_cliente` en sesión).
 
 ---
 
+## Flujo admin — catálogo y local (referencia)
+
+```
+/login (admin@burger.example) → /admin
+     ↓
+/admin/local
+  AdminEstablecimientoForm → updateEstablecimientoAction
+    → Postgres establecimiento
+    → syncCatalogHeader (Mongo restaurant_catalogs)
+    → upsertRestaurantProfile nombre (Mongo)
+  AdminPerfilComercialForm → updateRestaurantProfileAction
+    → Mongo restaurant_profiles
+     ↓
+/admin/productos (Server Component → getRestaurantCatalog)
+  AdminProductList + AdminProductAvailabilityToggle
+     ↓
+/admin/productos/nuevo
+  AdminProductForm → saveCatalogProductAction → addCatalogProduct
+    → revalidatePath(/admin/productos, /restaurantes/[id])
+    → redirect(/admin/productos/[idProducto])
+     ↓
+/admin/productos/[idProducto]
+  AdminProductForm (edit) → saveCatalogProductAction → updateCatalogProduct
+  Toggle → setProductAvailabilityAction (disponible true/false)
+     ↓
+/restaurantes/[idEstablecimiento]  ← catálogo público lee el mismo documento Mongo
+```
+
+Fotos de producto: campo `foto` (URL externa, típicamente CDN `images.rappi.com.ar`). No hay upload de archivos; el admin pega la URL en el formulario.
+
+---
+
 ## Bitácora de avances
 
 | Fecha | Cambio |
 |-------|--------|
 | 2026-06-08 | Documento inicial generado desde análisis de docs + código + diff local |
+| 2026-06-08 | **Admin CRUD scoped:** `/admin/local`, catálogo Mongo, Server Actions, sync PG→Mongo, soft delete productos |
 | 2026-06-08 | **Fase 1 checkout:** snapshot `detalle_pedido`, `createPedidoFromCartSnapshot`, `getDireccionesByCliente`, `confirmCartAction`, login `?next=`, gate auth en `/carrito`, confirmación real con ownership |
+| 2026-06-08 | **IMPLEMENTACION.md:** sección admin operativo (archivos, Server Actions, `useActionState`, flujo catálogo/local, redirect post-alta) |
 
 ---
 

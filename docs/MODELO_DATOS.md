@@ -160,10 +160,11 @@ Uso desde codigo:
 
 - modulo: `lib/db/mongodb`;
 - cliente: `lib/db/mongodb/client.ts`;
-- queries actuales: `getRestaurantCatalog`, `getRestaurantReviews`,
-  `createReview`, `getUserActivity`;
-- queries sugeridas: `getOrderDocument`, `getUserProfile`,
-  `getRestaurantProfile`.
+- queries actuales: `getRestaurantCatalog`, `getRestaurantCatalogProduct`,
+  `getRestaurantProfile`, `upsertRestaurantProfile`, `syncCatalogHeader`,
+  `addCatalogProduct`, `updateCatalogProduct`, `setCatalogProductAvailability`,
+  `getRestaurantReviews`, `createReview`, `getUserActivity`;
+- queries sugeridas: `getOrderDocument`, `getUserProfile`.
 
 Regla: usar MongoDB cuando el shape del dato pueda evolucionar, cuando se lea
 naturalmente como documento completo o cuando no convenga forzar tablas

@@ -8,15 +8,13 @@ export default async function UsuarioLayout({ children }: { children: ReactNode 
 
   return (
     <RoleShell
-      eyebrow="Usuario"
+      // eyebrow="Usuario"
       title="Cuenta y pedidos"
       description="Vista del consumidor final para explorar establecimientos, revisar pedidos y administrar direcciones."
       userLabel={session.displayName}
       navItems={[
         { href: '/usuario', label: 'Perfil' },
-        { href: '/usuario/establecimientos', label: 'Establecimientos' },
         { href: '/usuario/pedidos', label: 'Mis pedidos' },
-        { href: '/usuario/direcciones', label: 'Direcciones' },
       ]}
     >
       {children}

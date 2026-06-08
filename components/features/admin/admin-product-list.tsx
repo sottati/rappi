@@ -1,20 +1,30 @@
+import Link from 'next/link'
+
+import {
+  AdminProductAvailabilityToggle,
+} from '@/components/features/admin/admin-product-form'
 import { formatArs } from '@/lib/rappi'
 import { cn } from '@/lib/utils'
-import type { Producto } from '@/types/domain'
+import type { RestaurantCatalogProduct } from '@/lib/db/mongodb/types'
 
-function getPrecioFinal(producto: Producto) {
+function getPrecioFinal(producto: RestaurantCatalogProduct) {
   if (producto.promocionPorcentaje <= 0) return producto.precio
   return Math.round(producto.precio * (1 - producto.promocionPorcentaje / 100))
 }
 
-interface AdminProductListProps {
-  productos: Producto[]
+export interface AdminCatalogListItem {
+  producto: RestaurantCatalogProduct
+  categoriaNombre: string
 }
 
-export function AdminProductList({ productos }: AdminProductListProps) {
+interface AdminProductListProps {
+  items: AdminCatalogListItem[]
+}
+
+export function AdminProductList({ items }: AdminProductListProps) {
   return (
     <div className="divide-y rounded-xl border border-border/80 bg-card">
-      {productos.map((producto) => {
+      {items.map(({ producto, categoriaNombre }) => {
         const precioFinal = getPrecioFinal(producto)
         const tienePromo = producto.promocionPorcentaje > 0
 
@@ -61,18 +71,37 @@ export function AdminProductList({ productos }: AdminProductListProps) {
                     </span>
                   ) : null}
                 </div>
-                <p className="line-clamp-2 text-sm text-muted-foreground">{producto.descripcion}</p>
-                <p className="text-xs text-muted-foreground">ID #{producto.idProducto}</p>
+                <p className="line-clamp-2 text-sm text-muted-foreground">
+                  {producto.descripcion}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {categoriaNombre} · ID #{producto.idProducto}
+                </p>
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-col items-start gap-0.5 sm:items-end">
-              <p className="text-lg font-semibold">{formatArs(precioFinal)}</p>
-              {tienePromo ? (
-                <p className="text-sm text-muted-foreground line-through">
-                  {formatArs(producto.precio)}
-                </p>
-              ) : null}
+            <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+              <div className="flex flex-col items-start gap-0.5 sm:items-end">
+                <p className="text-lg font-semibold">{formatArs(precioFinal)}</p>
+                {tienePromo ? (
+                  <p className="text-sm text-muted-foreground line-through">
+                    {formatArs(producto.precio)}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/admin/productos/${producto.idProducto}`}
+                  className="inline-flex h-8 items-center rounded-full border px-3 text-sm transition-colors hover:bg-muted"
+                >
+                  Editar
+                </Link>
+                <AdminProductAvailabilityToggle
+                  idProducto={producto.idProducto}
+                  disponible={producto.disponible}
+                />
+              </div>
             </div>
           </article>
         )

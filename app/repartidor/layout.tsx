@@ -8,7 +8,6 @@ export default async function RepartidorLayout({ children }: { children: ReactNo
 
   return (
     <RoleShell
-      eyebrow="Repartidor"
       title="Turno y entregas"
       description="Vista operativa para disponibilidad, pedidos asignados y estado de entrega."
       userLabel={session.displayName}

@@ -406,8 +406,8 @@ db.user_activity.createIndex({ action: 1, createdAt: -1 })
 
 ## Gaps fisicos
 
-- Implementar queries/mocks para `restaurant_profiles`, `order_documents` y
-  `user_profiles`.
+- Implementar queries/mocks para `order_documents` y `user_profiles`.
+- `restaurant_profiles`: queries implementadas (`getRestaurantProfile`, `upsertRestaurantProfile`); CRUD admin en `/admin/local`.
 - Unificar naming de ids en `reviews` y `user_activity` si se abandona
   `restaurantId`/`userId` string.
 - Definir si el snapshot de `order_documents` se actualiza en cada cambio de

@@ -19,7 +19,7 @@ Lo que ya existe (usar como referencia, no reinventar):
 | Area                         | Estado                                                               |
 | ---------------------------- | -------------------------------------------------------------------- |
 | `app/page.tsx`               | Landing con links a roles y flujo publico de restaurantes/carrito    |
-| `app/admin/`                 | Layout protegido + resumen + establecimientos + productos + pedidos  |
+| `app/admin/`                 | Layout protegido + resumen + `/admin/local` + productos (Mongo CRUD) + pedidos |
 | `app/repartidor/`            | Layout protegido + resumen + disponibilidad + pedidos mock/parciales |
 | `app/usuario/`               | Layout protegido + resumen scoped + pedidos mock/parciales           |
 | `app/login`                  | Login funcional contra `cuenta_app` mediante Server Action           |
@@ -33,7 +33,7 @@ Lo que ya existe (usar como referencia, no reinventar):
 Rutas todavia pendientes o incompletas (crear siguiendo el patron existente):
 
 - `/admin/analytics`
-- `/admin/establecimientos/[idEstablecimiento]` y subrutas
+- completar integracion real de `/admin/pedidos/[idPedido]`
 - completar integracion real de `/repartidor/pedidos`, `/repartidor/pedidos/[idPedido]`
 - completar integracion real de `/usuario/pedidos`, `/usuario/pedidos/[idPedido]`
 - `/usuario/establecimientos`, `/usuario/direcciones` y detalles
@@ -44,11 +44,13 @@ Auth publica: `/login` funciona contra `cuenta_app`; `/signin` es pantalla publi
 
 Antes de implementar una pantalla nueva, leer estos archivos:
 
-1. `app/admin/establecimientos/page.tsx` — patron minimo: query → error → empty → render
-2. `app/admin/page.tsx` — orquestacion de multiples queries con `Promise.all`
-3. `app/admin/layout.tsx` — layout por rol con `RoleShell` + `requireSession`
-4. `lib/db/postgres/queries.ts` — patron de query con mock/real
-5. `types/domain.ts` — tipos compartidos del dominio
+1. `app/admin/productos/page.tsx` — patron scoped: sesion → Mongo catalog → render
+2. `app/admin/local/page.tsx` — CRUD local: Postgres + Mongo profile
+3. `app/admin/pedidos/page.tsx` — listado scoped por establecimiento
+4. `app/admin/page.tsx` — orquestacion de multiples queries con `Promise.all`
+5. `app/admin/layout.tsx` — layout por rol con `RoleShell` + `requireSession`
+6. `lib/db/postgres/queries.ts` — patron de query con mock/real
+7. `types/domain.ts` — tipos compartidos del dominio
 
 ## Stack
 

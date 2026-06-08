@@ -70,8 +70,8 @@ export function AdminDashboard({ dashboard }: AdminDashboardProps) {
           <h2 className="font-semibold">Accesos rápidos</h2>
         </div>
         <div className="grid gap-0 divide-y">
-          <Link className="p-4 text-sm transition-colors hover:bg-muted" href="/admin/establecimientos">
-            Revisar establecimientos administrados
+          <Link className="p-4 text-sm transition-colors hover:bg-muted" href="/admin/local">
+            Gestionar mi establecimiento
           </Link>
           <Link className="p-4 text-sm transition-colors hover:bg-muted" href="/admin/pedidos">
             Ver pedidos recibidos

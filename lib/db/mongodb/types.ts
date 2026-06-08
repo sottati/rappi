@@ -36,6 +36,34 @@ export interface RestaurantCatalogProductLookup {
   producto: RestaurantCatalogProduct
 }
 
+export interface RestaurantProfileHorario {
+  dia: string
+  abre: string
+  cierra: string
+}
+
+export interface RestaurantProfile {
+  _id?: ObjectId
+  idEstablecimiento: number
+  nombre: string
+  descripcionComercial?: string
+  horarios?: RestaurantProfileHorario[]
+  zonasEntrega?: string[]
+  mediosPago?: string[]
+  metadata?: Record<string, unknown>
+  updatedAt: Date
+}
+
+export interface CatalogProductInput {
+  nombre: string
+  descripcion: string
+  precio: number
+  promocionPorcentaje: number
+  disponible: boolean
+  foto: string
+  categoriaNombre: string
+}
+
 export interface Review {
   _id?: ObjectId
   restaurantId: string
