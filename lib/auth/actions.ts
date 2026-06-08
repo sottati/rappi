@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { sanitizeNextPath } from '@/lib/auth/next-path'
 import { cuentaToSession, getRoleHomePath, setSession, clearSession } from '@/lib/auth/session'
 import { postgres } from '@/lib/db'
 
@@ -25,7 +26,8 @@ export async function loginAction(
   }
 
   await setSession(cuentaToSession(result.data))
-  redirect(getRoleHomePath(result.data.rol))
+  const next = sanitizeNextPath(String(formData.get('next') ?? ''))
+  redirect(next ?? getRoleHomePath(result.data.rol))
 }
 
 export async function logoutAction(): Promise<void> {

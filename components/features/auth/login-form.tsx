@@ -9,11 +9,18 @@ import Link from 'next/link'
 
 const initialState: LoginFormState = {}
 
-export function LoginForm() {
+interface LoginFormProps {
+  nextPath?: string | null
+}
+
+export function LoginForm({ nextPath }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState)
 
   return (
     <form className="space-y-4" action={formAction} noValidate>
+      {nextPath ? (
+        <input type="hidden" name="next" value={nextPath} readOnly />
+      ) : null}
       <div className="space-y-2">
         <label htmlFor="login-email" className="text-sm font-medium">
           Email

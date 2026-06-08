@@ -11,6 +11,7 @@ import { useMemo } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import type { AppSession } from '@/lib/auth/session-types'
 import {
   getCartItemCount,
   getCartSubtotal,
@@ -18,9 +19,14 @@ import {
 } from '@/lib/cart/store'
 import { formatArs } from '@/lib/rappi'
 
+import { ConfirmCartForm } from './confirm-cart-form'
 import { CartLineItemRow } from './cart-line-item'
 
-export function CartView() {
+interface CartViewProps {
+  session: AppSession | null
+}
+
+export function CartView({ session }: CartViewProps) {
   const items = useCartStore((state) => state.items)
   const restaurantId = useCartStore((state) => state.restaurantId)
   const restaurantName = useCartStore((state) => state.restaurantName)
@@ -35,6 +41,9 @@ export function CartView() {
 
   const subtotal = useMemo(() => getCartSubtotal(items), [items])
   const total = subtotal + deliveryFee + serviceFee
+  const canCheckoutAsUsuario = session?.role === 'usuario'
+  const isLoggedInOtherRole =
+    session != null && session.role !== 'usuario'
   const restaurantHref = restaurantId
     ? `/restaurantes/${restaurantId}`
     : '/restaurantes'
@@ -158,12 +167,32 @@ export function CartView() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {getCartItemCount(items)} productos · Pago al confirmar
+            {getCartItemCount(items)} productos · Total productos{' '}
+            {formatArs(subtotal)} · Envío y tarifa simulados en pantalla
           </p>
 
-          <Button className="w-full" size="lg" asChild>
-            <Link href="/carrito/confirmacion">Confirmar pedido</Link>
-          </Button>
+          {!session ? (
+            <>
+              <Button className="w-full" size="lg" asChild>
+                <Link href="/login?next=/carrito">Iniciá sesión para confirmar</Link>
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Necesitás una cuenta de consumidor para completar la compra.
+              </p>
+            </>
+          ) : canCheckoutAsUsuario ? (
+            <ConfirmCartForm />
+          ) : isLoggedInOtherRole ? (
+            <>
+              <Button className="w-full" size="lg" disabled>
+                Confirmar pedido
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Tu cuenta ({session.role}) no puede confirmar pedidos. Usá una
+                cuenta de consumidor.
+              </p>
+            </>
+          ) : null}
           <Button variant="outline" className="w-full" asChild>
             <Link href="/restaurantes">
               <HugeiconsIcon

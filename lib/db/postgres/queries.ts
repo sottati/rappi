@@ -3,6 +3,7 @@ import { EstadoPedido } from '@/types/domain'
 import type {
   CuentaApp,
   DetallePedido,
+  DireccionEntrega,
   Establecimiento,
   PedidoConDetalle,
   Producto,
@@ -13,6 +14,7 @@ import { fail, ok, shouldUseMockData } from '../helpers'
 import { getDrizzleDb } from './drizzle'
 import {
   mockCuentasApp,
+  mockDireccionesEntrega,
   mockEstablecimientos,
   mockPedidos,
   mockProductos,
@@ -21,6 +23,7 @@ import {
 import {
   cuentaApp,
   detallePedido,
+  direccionEntrega,
   establecimiento,
   pedido,
   producto,
@@ -29,6 +32,7 @@ import {
 import type {
   CuentaAppSelect,
   DetallePedidoSelect,
+  DireccionEntregaSelect,
   EstablecimientoSelect,
   PedidoSelect,
   ProductoSelect,
@@ -98,6 +102,17 @@ function mapRepartidor(row: RepartidorSelect): Repartidor {
   }
 }
 
+function mapDireccionEntrega(row: DireccionEntregaSelect): DireccionEntrega {
+  return {
+    idDireccion: row.idDireccion,
+    idCliente: row.idCliente,
+    calle: row.calle,
+    numero: row.numero,
+    ciudad: row.ciudad,
+    codigoPostal: row.codigoPostal,
+  }
+}
+
 export interface CreatePedidoFromCartSnapshotItem {
   idProductoCatalogo: number
   nombreProducto: string
@@ -161,7 +176,7 @@ export async function createPedidoFromCartSnapshot(
       precioUnitario: item.precioUnitario,
     }))
 
-    return ok({
+    const created: PedidoConDetalle = {
       idPedido,
       idCliente: input.idCliente,
       idEstablecimiento: input.idEstablecimiento,
@@ -171,7 +186,9 @@ export async function createPedidoFromCartSnapshot(
       estado: EstadoPedido.Pendiente,
       total,
       detalles,
-    })
+    }
+    mockPedidos.push(created)
+    return ok(created)
   }
 
   try {
@@ -336,6 +353,14 @@ export async function getEstablecimientos(): Promise<
 export async function getEstablecimientoById(
   idEstablecimiento: number
 ): Promise<QueryResult<Establecimiento | null>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockEstablecimientos.find(
+        (item) => item.idEstablecimiento === idEstablecimiento
+      ) ?? null
+    )
+  }
+
   try {
     const row = await getDrizzleDb().query.establecimiento.findFirst({
       where: eq(establecimiento.idEstablecimiento, idEstablecimiento),
@@ -344,6 +369,28 @@ export async function getEstablecimientoById(
   } catch (e) {
     return fail(
       e instanceof Error ? e.message : 'Failed to fetch establecimiento'
+    )
+  }
+}
+
+export async function getDireccionesByCliente(
+  idCliente: number
+): Promise<QueryResult<DireccionEntrega[]>> {
+  if (shouldUseMockData()) {
+    return ok(
+      mockDireccionesEntrega.filter((item) => item.idCliente === idCliente)
+    )
+  }
+
+  try {
+    const rows = await getDrizzleDb().query.direccionEntrega.findMany({
+      where: eq(direccionEntrega.idCliente, idCliente),
+      orderBy: asc(direccionEntrega.idDireccion),
+    })
+    return ok(rows.map(mapDireccionEntrega))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : 'Failed to fetch direcciones by cliente'
     )
   }
 }

@@ -1,6 +1,7 @@
 import type {
   CuentaApp,
   DetallePedido,
+  DireccionEntrega,
   Establecimiento,
   PedidoConDetalle,
   Producto,
@@ -47,6 +48,25 @@ export const mockProductos: Producto[] = [
     promocionPorcentaje: 15,
     disponible: true,
     foto: 'https://images.rappi.com.ar/rests_taxonomy/8756fb49-2a56-477d-b7d8-3e533c4b3641.png?e=webp&d=200x200&q=50',
+  },
+]
+
+export const mockDireccionesEntrega: DireccionEntrega[] = [
+  {
+    idDireccion: 1,
+    idCliente: 1,
+    calle: 'Av. Corrientes',
+    numero: '1234',
+    ciudad: 'CABA',
+    codigoPostal: 'C1043',
+  },
+  {
+    idDireccion: 2,
+    idCliente: 2,
+    calle: 'Florida',
+    numero: '650',
+    ciudad: 'CABA',
+    codigoPostal: 'C1005',
   },
 ]
 
