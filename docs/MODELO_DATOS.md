@@ -247,6 +247,20 @@ Uso desde codigo:
 - queries en `lib/db/cassandra/queries.ts`;
 - tipos especificos en `lib/db/cassandra/types.ts`.
 
+Uso desde UI:
+
+- `/admin`: KPIs y charts semanales del local. La base primaria es
+  `metricas_diarias_local`; si una metrica diaria esta incompleta o no existe,
+  se fusiona `pedidos_por_local` como fallback para derivar pedidos/facturacion
+  por dia. La serie se normaliza a los ultimos 7 dias terminando hoy y rellena
+  dias sin actividad con cero. El KPI de calificacion usa
+  `ranking_locales_por_mes` del mes corriente.
+- `/admin/analytics`: metricas globales/locales por mes, ranking mensual y tabla
+  de pedidos historicos del local.
+- `/usuario/pedidos`: historial por cliente desde `pedidos_por_cliente`.
+- `/repartidor/pedidos`: pedidos asignados/historicos desde
+  `pedidos_por_repartidor`; pedidos disponibles siguen viniendo de Redis.
+
 Regla: Cassandra se usa para lecturas historicas/analiticas orientadas a una
 pregunta concreta. No se usa para validar integridad transaccional del pedido.
 

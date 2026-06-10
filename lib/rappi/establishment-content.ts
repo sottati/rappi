@@ -9,11 +9,11 @@ const cover = (path: string) =>
   `https://images.rappi.com.ar/restaurants_background/${path}?e=webp&d=800x400&q=60`
 
 export interface EstablishmentPresentation {
-  coverSrc: string
-  logoSrc: string
-  deliveryMinutes: number
-  deliveryFee: number
-  rating: number
+  coverSrc?: string
+  logoSrc?: string
+  deliveryMinutes?: number
+  deliveryFee?: number
+  rating?: number
 }
 
 export interface EstablishmentCatalog {

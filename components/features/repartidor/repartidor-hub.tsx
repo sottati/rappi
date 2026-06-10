@@ -58,11 +58,11 @@ export function RepartidorHub({
   pedidoActivo,
   pedidosRecientes,
 }: RepartidorHubProps) {
-  const { perfil, ubicacion, kpis, accesosRapidos } = hub
+  const { perfil, ubicacion, kpis } = hub
 
   return (
     <section className="grid gap-6">
-      <div className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
+      <div className="rounded-lg border border-border/80 bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Turno activo</p>
@@ -83,7 +83,7 @@ export function RepartidorHub({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
           <StatCard
             key={kpi.label}
@@ -95,13 +95,13 @@ export function RepartidorHub({
       </div>
 
       {pedidoActivo ? (
-        <section className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
+        <section className="rounded-lg border border-primary/30 bg-primary/5 p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Entrega en curso</h2>
             <OrderStatusBadge estado={pedidoActivo.estado} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">Pedido</p>
               <p className="font-medium">#{pedidoActivo.idPedido}</p>
@@ -136,7 +136,7 @@ export function RepartidorHub({
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
+        <section className="rounded-lg border border-border/80 bg-card p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-semibold">Ubicación</h2>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
@@ -158,7 +158,7 @@ export function RepartidorHub({
           </dl>
         </section>
 
-        <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
+        <section className="rounded-lg border border-border/80 bg-card p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-semibold">Pedidos recientes</h2>
           {pedidosRecientes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -193,26 +193,6 @@ export function RepartidorHub({
             Ver todos →
           </Link>
         </section>
-      </div>
-
-      <div className="rounded-xl border border-border/80 bg-card">
-        <div className="border-b p-4">
-          <h2 className="font-semibold">Accesos rápidos</h2>
-        </div>
-        <div className="divide-y">
-          {accesosRapidos.map((acceso) => (
-            <Link
-              key={acceso.href}
-              href={acceso.href}
-              className="block p-4 transition-colors hover:bg-muted"
-            >
-              <p className="text-sm font-medium">{acceso.label}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {acceso.description}
-              </p>
-            </Link>
-          ))}
-        </div>
       </div>
     </section>
   )

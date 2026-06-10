@@ -25,98 +25,19 @@ import type {
   PedidoPorRepartidor,
   RankingLocalMes,
 } from './types'
-
-type CqlDate = string | { year: number; month: number; date: number }
-type DateLike = Date | string
-
-interface PedidoPorClienteRow {
-  id_cliente: number
-  fecha_hora: DateLike
-  id_pedido: number
-  estado: string
-  id_establecimiento: number
-  id_repartidor: number
-  nombre_establecimiento: string
-  total: number
-}
-
-interface PedidoPorLocalRow {
-  id_establecimiento: number
-  fecha_hora: DateLike
-  id_pedido: number
-  estado: string
-  id_cliente: number
-  nombre_cliente: string
-  total: number
-}
-
-interface PedidoPorRepartidorRow {
-  id_repartidor: number
-  fecha_hora: DateLike
-  id_pedido: number
-  direccion_entrega: string
-  estado: string
-  id_cliente: number
-  id_establecimiento: number
-  nombre_cliente: string
-  nombre_establecimiento: string
-  telefono_cliente: string
-  total: number
-}
-
-interface CalificacionLocalRow {
-  id_establecimiento: number
-  fecha_hora: DateLike
-  id_calificacion: number
-  id_pedido: number
-  puntaje: number
-  tipo: string
-}
-
-interface CalificacionRepartidorRow {
-  id_repartidor: number
-  fecha_hora: DateLike
-  id_calificacion: number
-  id_pedido: number
-  puntaje: number
-}
-
-interface MetricaDiariaLocalRow {
-  id_establecimiento: number
-  fecha: CqlDate
-  ingresos_del_dia: number
-  pedidos_aceptados: number
-  pedidos_cancelados: number
-  total_pedidos: number
-}
-
-interface MetricaDiariaRepartidorRow {
-  id_repartidor: number
-  fecha: CqlDate
-  ingresos_del_dia: number
-  pedidos_cancelados: number
-  pedidos_entregados: number
-}
-
-interface MetricaGlobalDiariaRow {
-  bucket: string
-  fecha: CqlDate
-  ingresos_totales: number
-  locales_activos: number
-  pedidos_cancelados: number
-  pedidos_entregados: number
-  repartidores_activos: number
-  total_pedidos: number
-}
-
-interface RankingLocalMesRow {
-  mes: string
-  total_pedidos: number
-  id_establecimiento: number
-  ingresos: number
-  nombre_establecimiento: string
-  promedio_calificacion: number
-}
+import type {
+  CalificacionLocalRow,
+  CalificacionRepartidorRow,
+  CqlDate,
+  DateLike,
+  MetricaDiariaLocalRow,
+  MetricaDiariaRepartidorRow,
+  MetricaGlobalDiariaRow,
+  PedidoPorClienteRow,
+  PedidoPorLocalRow,
+  PedidoPorRepartidorRow,
+  RankingLocalMesRow,
+} from './rows'
 
 function parseDate(value: DateLike): Date {
   return value instanceof Date ? value : new Date(value)

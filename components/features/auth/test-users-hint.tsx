@@ -1,17 +1,17 @@
-import { mockTestPassword } from '@/lib/db/postgres/mock'
-
 const testUsers = [
   { email: 'admin@burger.example', role: 'Admin', path: '/admin' },
   { email: 'lucia.gomez@example.com', role: 'Repartidor', path: '/repartidor' },
   { email: 'ana.perez@example.com', role: 'Usuario', path: '/usuario' },
 ] as const
 
+const testPassword = 'test123'
+
 export function TestUsersHint() {
   return (
     <div className="rounded-lg border border-dashed bg-muted/40 p-4 text-sm">
       <p className="font-medium">Usuarios de prueba</p>
       <p className="mt-1 text-muted-foreground">
-        Contraseña para todos: <code className="text-foreground">{mockTestPassword}</code>
+        Contraseña para todos: <code className="text-foreground">{testPassword}</code>
       </p>
       <ul className="mt-3 space-y-2">
         {testUsers.map((user) => (

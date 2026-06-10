@@ -3,7 +3,10 @@ import { Suspense } from 'react'
 
 import { EstablishmentCatalog } from '@/components/features/restaurants/establishment-catalog'
 import { EstablishmentCatalogSkeleton } from '@/components/features/restaurants/establishment-catalog-skeleton'
-import { EstablishmentHero } from '@/components/features/restaurants/establishment-hero'
+import {
+  EstablishmentHero,
+  type EstablishmentHeroProfile,
+} from '@/components/features/restaurants/establishment-hero'
 import Navbar from '@/components/navbar'
 import { ErrorState } from '@/components/shared/query-state'
 import { mongodb, postgres } from '@/lib/db'
@@ -49,29 +52,38 @@ export default async function EstablecimientoPage({
 
   if (Number.isNaN(idEstablecimiento)) notFound()
 
-  const establecimientoResult =
-    await postgres.queries.getEstablecimientoById(idEstablecimiento)
+  const [establecimientoResult, profileResult] = await Promise.all([
+    postgres.queries.getEstablecimientoById(idEstablecimiento),
+    mongodb.queries.getRestaurantProfile(idEstablecimiento),
+  ])
 
   if (establecimientoResult.error) {
     return <ErrorState message={establecimientoResult.error} />
+  }
+  if (profileResult.error) {
+    return <ErrorState message={profileResult.error} />
   }
 
   if (!establecimientoResult.data) notFound()
 
   const establecimiento = establecimientoResult.data
+  const profile = profileResult.data
+  const heroProfile: EstablishmentHeroProfile | null = profile
+    ? {
+        descripcionComercial: profile.descripcionComercial,
+        horarios: profile.horarios,
+        zonasEntrega: profile.zonasEntrega,
+        mediosPago: profile.mediosPago,
+      }
+    : null
 
   return (
     <main className="min-h-svh bg-background text-foreground">
       <Navbar />
       <EstablishmentHero
         establecimiento={establecimiento}
-        presentation={{
-          coverSrc: '',
-          logoSrc: '',
-          deliveryMinutes: 35,
-          deliveryFee: 1490,
-          rating: 4.5,
-        }}
+        profile={heroProfile}
+        presentation={{}}
       />
       <Suspense fallback={<EstablishmentCatalogSkeleton />}>
         <EstablishmentCatalogSection

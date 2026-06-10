@@ -5,7 +5,7 @@ const ORDER_STEPS = [
   { label: 'Entregado', shortLabel: 'Entregado' },
 ] as const
 
-/** Paso actual del mock (0 = confirmado). */
+/** Paso inicial del checkout antes de recibir tracking real. */
 const CURRENT_STEP_INDEX = 0
 
 function StepConnector({ active }: { active: boolean }) {

@@ -133,7 +133,7 @@ export async function getRestaurantProfile(
     const profile = await db
       .collection<RestaurantProfile>('restaurant_profiles')
       .findOne({ idEstablecimiento })
-    return ok(profile)
+    return ok(profile ? omitMongoId(profile) : null)
   } catch (e) {
     return fail(e instanceof Error ? e.message : 'Failed to fetch restaurant profile')
   }

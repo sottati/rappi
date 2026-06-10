@@ -6,7 +6,7 @@
 -- Keyspace esperado por la app:
 --   ASTRA_DB_KEYSPACE=db_uade
 --
--- El seed demo (`MOCK_DB=false pnpm db:seed`) inserta filas historicas y
+-- El seed demo (`pnpm db:seed` con `MOCK_DB=false` o sin `MOCK_DB`) inserta filas historicas y
 -- denormalizadas para estas consultas. Primero crear el keyspace/tablas en Astra.
 --
 -- En Astra DB el keyspace se crea desde el panel/proveedor. Si se ejecuta en
@@ -34,6 +34,22 @@
 -- repartidor", "metricas por dia" o "ranking mensual". Por eso hay tablas
 -- parecidas con datos repetidos. Esa duplicacion es intencional: evita joins y
 -- permite lecturas directas por particion.
+--
+-- Uso actual en UI:
+-- - /admin lee metricas_diarias_local para KPIs/charts semanales y fusiona
+--   pedidos_por_local como fallback cuando la metrica agregada todavia no
+--   refleja pedidos recientes. La ventana semanal termina en la fecha actual.
+-- - /admin/analytics lee metricas_globales_diarias, metricas_diarias_local,
+--   ranking_locales_por_mes y pedidos_por_local filtrando por mes.
+-- - /usuario/pedidos lee pedidos_por_cliente.
+-- - /repartidor/pedidos lee pedidos_por_repartidor para asignados/historicos.
+
+-- En Astra DB el keyspace se crea desde el panel/proveedor. En Cassandra
+-- local, ejecutar primero:
+--
+-- CREATE KEYSPACE IF NOT EXISTS db_uade
+--   WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}
+--   AND durable_writes = true;
 
 USE db_uade;
 

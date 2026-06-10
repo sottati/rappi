@@ -1,4 +1,6 @@
 import type {
+  Calificacion,
+  Cliente,
   CuentaApp,
   DetallePedido,
   DireccionEntrega,
@@ -8,6 +10,23 @@ import type {
   Repartidor,
 } from '@/types/domain'
 import { EstadoPedido } from '@/types/domain'
+
+export const mockClientes: Cliente[] = [
+  {
+    idCliente: 1,
+    nombre: 'Ana',
+    apellido: 'Perez',
+    email: 'ana.perez@example.com',
+    telefono: '+54 11 5555-1001',
+  },
+  {
+    idCliente: 2,
+    nombre: 'Carlos',
+    apellido: 'Diaz',
+    email: 'carlos.diaz@example.com',
+    telefono: '+54 11 5555-1002',
+  },
+]
 
 export const mockEstablecimientos: Establecimiento[] = [
   {
@@ -178,6 +197,8 @@ export const mockCuentasApp: CuentaApp[] = [
     idEstablecimiento: null,
   },
 ]
+
+export const mockCalificaciones: Calificacion[] = []
 
 export const mockRestaurants = mockEstablecimientos
 export const mockDeliveryPersons = mockRepartidores

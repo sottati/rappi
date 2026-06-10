@@ -11,5 +11,5 @@ export function fail<T>(error: string): QueryResult<T> {
 }
 
 export function shouldUseMockData(): boolean {
-  return process.env.MOCK_DB !== 'false'
+  return process.env.MOCK_DB === 'true'
 }

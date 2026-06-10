@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { getSession } from '@/lib/auth/session'
-import { postgres } from '@/lib/db'
+import { cassandra, postgres } from '@/lib/db'
 
 export interface ConfirmCartState {
   error?: string
@@ -107,6 +107,8 @@ export async function confirmCartAction(
   if (result.error || !result.data) {
     return { error: result.error ?? 'No se pudo crear el pedido.' }
   }
+
+  await cassandra.projections.projectPedidoCreado(result.data)
 
   redirect(`/carrito/confirmacion?idPedido=${result.data.idPedido}`)
 }

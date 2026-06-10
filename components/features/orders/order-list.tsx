@@ -11,7 +11,7 @@ export interface OrderListItem {
   fechaHora: Date
   total: number
   establecimientoNombre: string
-  lineas: unknown[]
+  lineas?: unknown[]
 }
 
 interface OrderListProps {
@@ -46,8 +46,12 @@ export function OrderList({
               {pedido.establecimientoNombre}
             </p>
             <p className="text-xs text-muted-foreground">
-              {formatPedidoFecha(pedido.fechaHora)} · {pedido.lineas.length}{' '}
-              {pedido.lineas.length === 1 ? 'producto' : 'productos'}
+              {formatPedidoFecha(pedido.fechaHora)}
+              {pedido.lineas
+                ? ` · ${pedido.lineas.length} ${
+                    pedido.lineas.length === 1 ? 'producto' : 'productos'
+                  }`
+                : null}
             </p>
           </div>
           <p className="shrink-0 text-lg font-semibold">

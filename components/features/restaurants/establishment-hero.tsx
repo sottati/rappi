@@ -1,83 +1,101 @@
-'use client'
-
 import { Clock01Icon, StarIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState } from 'react'
 
 import { formatArs, type EstablishmentPresentation } from '@/lib/rappi'
+import type { RestaurantProfile } from '@/lib/db/mongodb/types'
 import type { Establecimiento } from '@/types/domain'
+import { cn } from '@/lib/utils'
+
+export type EstablishmentHeroProfile = Pick<
+  RestaurantProfile,
+  'descripcionComercial' | 'horarios' | 'zonasEntrega' | 'mediosPago'
+>
 
 interface EstablishmentHeroProps {
   establecimiento: Establecimiento
+  profile: EstablishmentHeroProfile | null
   presentation: EstablishmentPresentation
 }
 
-export function EstablishmentHero({ establecimiento, presentation }: EstablishmentHeroProps) {
-  const [coverError, setCoverError] = useState(false)
-  const [logoError, setLogoError] = useState(false)
+function formatBadgeList(values: string[]) {
+  return values
+    .map((value) => value.charAt(0).toUpperCase() + value.slice(1))
+    .join(' / ')
+}
+
+function HeroBadge({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border border-primary-foreground/20 bg-black/20 px-3 py-1.5 text-sm text-primary-foreground/90',
+        className,
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+export function EstablishmentHero({
+  establecimiento,
+  profile,
+  presentation,
+}: EstablishmentHeroProps) {
+  const horario = profile?.horarios?.[0]
+  const zonasEntrega = profile?.zonasEntrega?.filter(Boolean) ?? []
+  const mediosPago = profile?.mediosPago?.filter(Boolean) ?? []
+
+  const hasMetaBadges =
+    horario != null || zonasEntrega.length > 0 || mediosPago.length > 0
 
   return (
-    <section className="w-full bg-primary/8 px-4 pb-8 pt-28 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-6xl space-y-4">
-        <div className="relative aspect-3/1 min-h-40 overflow-hidden rounded-2xl border border-border/80 bg-muted">
-          {!coverError && presentation.coverSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={presentation.coverSrc}
-              alt=""
-              className="size-full object-cover"
-              onError={() => setCoverError(true)}
-            />
-          ) : (
-            <div className="flex size-full items-center justify-center bg-primary/10 text-lg font-semibold text-primary">
-              {establecimiento.nombre}
-            </div>
-          )}
+    <section className="w-full bg-card px-4 pb-10 pt-28 text-primary-foreground sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary-foreground/70">
+            {establecimiento.tipo}
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            {establecimiento.nombre}
+          </h1>
+          <p className="text-sm text-primary-foreground/80">{establecimiento.direccion}</p>
+          {profile?.descripcionComercial ? (
+            <p className="max-w-xl pt-0.5 text-sm leading-6 text-primary-foreground/90">
+              {profile.descripcionComercial}
+            </p>
+          ) : null}
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-              {!logoError && presentation.logoSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={presentation.logoSrc}
-                  alt=""
-                  className="size-full object-cover"
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <span className="text-sm font-semibold text-muted-foreground">
-                  {establecimiento.nombre.slice(0, 2)}
-                </span>
-              )}
-            </div>
-
-            <div className="min-w-0 space-y-1">
-              <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">
-                {establecimiento.nombre}
-              </h1>
-              <p className="text-sm text-muted-foreground">{establecimiento.direccion}</p>
-              <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium capitalize text-primary">
-                {establecimiento.tipo}
-              </span>
-            </div>
+        {hasMetaBadges || presentation.rating != null || presentation.deliveryMinutes != null || presentation.deliveryFee != null ? (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 text-sm sm:max-w-md">
+            {presentation.rating != null ? (
+              <HeroBadge className="gap-1 font-medium">
+                <HugeiconsIcon icon={StarIcon} className="size-4 text-amber-400" strokeWidth={2} />
+                {presentation.rating.toFixed(1)}
+              </HeroBadge>
+            ) : null}
+            {presentation.deliveryMinutes != null ? (
+              <HeroBadge className="gap-1">
+                <HugeiconsIcon icon={Clock01Icon} className="size-4 text-primary-foreground/70" strokeWidth={2} />
+                {presentation.deliveryMinutes} min
+              </HeroBadge>
+            ) : null}
+            {presentation.deliveryFee != null ? (
+              <HeroBadge>Envío {formatArs(presentation.deliveryFee)}</HeroBadge>
+            ) : null}
+            {horario ? (
+              <HeroBadge>
+                {horario.dia}: {horario.abre} a {horario.cierra}
+              </HeroBadge>
+            ) : null}
+            {zonasEntrega.length > 0 ? (
+              <HeroBadge>{formatBadgeList(zonasEntrega)}</HeroBadge>
+            ) : null}
+            {mediosPago.length > 0 ? (
+              <HeroBadge>{formatBadgeList(mediosPago)}</HeroBadge>
+            ) : null}
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 font-medium">
-              <HugeiconsIcon icon={StarIcon} className="size-4 text-amber-500" strokeWidth={2} />
-              {presentation.rating.toFixed(1)}
-            </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 text-muted-foreground">
-              <HugeiconsIcon icon={Clock01Icon} className="size-4" strokeWidth={2} />
-              {presentation.deliveryMinutes} min
-            </div>
-            <div className="rounded-full border border-border bg-background px-3 py-1.5 text-muted-foreground">
-              Envío {formatArs(presentation.deliveryFee)}
-            </div>
-          </div>
-        </div>
+        ) : null}
       </div>
     </section>
   )

@@ -2,7 +2,7 @@
 
 Documento vivo para trackear qué falta implementar en código vs. documentación y requerimientos funcionales.
 
-**Última revisión:** 2026-06-08  
+**Última revisión:** 2026-06-10  
 **Fuentes:** `docs/REQUERIMENTOS_FUNCIONALES.csv`, `docs/GAPS.md`, `docs/HANDOFF.md`, `docs/MODELO_DATOS.md`, `AGENTS.md`, código en `app/` y `lib/db/`.
 
 ---
@@ -12,13 +12,13 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 
 | Área                                                    | Estado                                                                       |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Base técnica multibase (clientes, queries, mocks, seed) | ✅ Listo                                                                      |
+| Base técnica multibase (clientes, queries reales, seed)  | ✅ Listo                                                                      |
 | Catálogo público (`/restaurantes/`*)                    | ✅ Postgres + Mongo                                                           |
 | Login y sesión por rol                                  | ✅ Funcional (+ callback `?next=`)                                            |
 | Flujo de compra end-to-end                              | ✅ Checkout persiste en Postgres                                              |
 | Detalle de pedidos por rol                              | ✅ Postgres scoped por rol                                                    |
 | CRUD operativo (productos, direcciones, estados)        | ⚠️ Parcial (admin catálogo + local ✅; direcciones usuario ✅; estados pedido ✅; perfil/registro pendiente) |
-| Analytics / Cassandra en UI                             | ❌ Sin pantallas                                                              |
+| Analytics / Cassandra en UI                             | ✅ `/admin`, `/admin/analytics`, historiales usuario/repartidor               |
 | Sincronización multibase post-checkout                  | ❌ Pendiente (Fase 1.5)                                                       |
 |                                                         |                                                                              |
 
@@ -47,7 +47,7 @@ Documento vivo para trackear qué falta implementar en código vs. documentació
 | `/carrito` con gate de auth                    | ✅      | Anónimo → login; admin/repartidor → bloqueado                 |
 | `/carrito/confirmacion?idPedido=`              | ✅      | Pedido real + ownership check + limpia carrito                |
 | Snapshot Drizzle de migración `0002`           | ⚠️     | SQL en repo; verificar journal/meta commiteado                |
-| Sync Mongo / Redis / Cassandra al crear pedido | ❌      | Dejado para Fase 1.5                                          |
+| Sync Mongo / Redis / Cassandra al crear pedido | 🔄      | Cassandra ✅ (`projections.ts`, ADR-025); Mongo pendiente      |
 
 
 ---
@@ -151,7 +151,7 @@ Cuenta demo usuario: `ana.perez@example.com` / `test123` (`id_cliente: 1`).
 | Pool Redis de pedidos disponibles         | ✅      | Set `delivery:available_orders` + Hash snapshot por pedido            |
 | Claim repartidor                          | ✅      | `order:claim:<idPedido>` con `SET NX` antes de asignar en Postgres    |
 | Cambio estado repartidor                  | ✅      | `confirmado/preparando → en_camino → entregado`                       |
-| Proyección Cassandra de eventos           | ❌      | Comentarios en Server Actions; queda para fase posterior              |
+| Proyección Cassandra de eventos           | ✅      | `lib/db/cassandra/projections.ts` desde checkout, estados, claim y calificaciones |
 
 ### Archivos clave (pedidos operativos)
 
@@ -172,6 +172,7 @@ admin confirma → Postgres confirmado + Redis Set ids + Hash snapshot
 repartidor lista → Redis SMEMBERS + HGETALL, sin query Postgres por candidato
 repartidor toma → Redis claim NX + Postgres id_repartidor
 repartidor avanza → Postgres en_camino / entregado + Redis order:status
+Server Actions proyectan cambios a Cassandra best-effort para historiales y métricas
 ```
 
 ---
@@ -185,7 +186,7 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | ------------------------------------------ | ----------------------------- | -------------------------------------------------------- |
 | `/login`                                   | Postgres (`cuenta_app`)       | Server Action; soporta `?next=`                          |
 | `/restaurantes`                            | Postgres                      | Listado establecimientos                                 |
-| `/restaurantes/[idEstablecimiento]`        | Postgres + Mongo              | Catálogo Mongo                                           |
+| `/restaurantes/[idEstablecimiento]`        | Postgres + Mongo              | Catálogo Mongo + perfil comercial Mongo                  |
 | `/restaurantes/.../productos/[idProducto]` | Postgres + Mongo              | Detalle producto                                         |
 | `/carrito`                                 | Zustand + Postgres (checkout) | Público para ver; confirmar requiere `usuario` + dirección |
 | `/carrito/confirmacion`                    | Postgres                      | `getPedidoById` scoped por `id_cliente`                  |
@@ -195,21 +196,22 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | `/admin/productos/[idProducto]`            | Mongo                         | Edición + toggle disponibilidad                          |
 | `/admin/pedidos`                           | Postgres                      | Scoped por `id_establecimiento`                          |
 | `/admin/pedidos/[idPedido]`                | Postgres + Redis              | Detalle scoped + confirmar/rechazar/preparar             |
+| `/admin`                                   | Cassandra                     | KPIs + charts semanales desde `metricas_diarias_local`; fusiona `pedidos_por_local` como fallback |
+| `/admin/analytics`                         | Cassandra                     | Métricas globales/local por mes, ranking y pedidos históricos; charts shadcn/Recharts con empty states |
 | `/usuario`                                 | Postgres                      | Perfil + CRUD `direccion_entrega` scoped por `id_cliente` |
-| `/usuario/pedidos`                         | Postgres                      | Historial scoped por `id_cliente`                        |
+| `/usuario/pedidos`                         | Cassandra                     | Historial scoped por `id_cliente` vía `pedidos_por_cliente` |
 | `/usuario/pedidos/[idPedido]`              | Postgres                      | Detalle con ownership `id_cliente`                       |
 | `/repartidor`                              | Postgres + Redis              | Resumen scoped por `id_repartidor` + ubicación Redis     |
 | `/repartidor/disponibilidad`               | Postgres + Redis              | Solo lectura                                             |
-| `/repartidor/pedidos`                      | Postgres + Redis              | Disponibles para tomar + asignados al repartidor         |
+| `/repartidor/pedidos`                      | Redis + Cassandra             | Disponibles vía Redis + asignados vía `pedidos_por_repartidor` |
 | `/repartidor/pedidos/[idPedido]`           | Postgres + Redis              | Detalle scoped + avance en camino/entregado              |
 
 
-### Existen pero siguen en mock o parcial
+### Existen pero siguen parciales
 
 
 | Ruta                             | Estado     | Debería usar                                         |
 | -------------------------------- | ---------- | ---------------------------------------------------- |
-| `/admin`                         | ⚠️ Mock    | Postgres scoped + Cassandra métricas                 |
 | `/admin/establecimientos`        | ✅ Redirect | Redirige a `/admin/local`                            |
 | `/signin`                        | ❌ Visual   | Alta en `cliente` + `cuenta_app`                     |
 
@@ -219,7 +221,6 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 
 | Ruta                                          | Referencia                     |
 | --------------------------------------------- | ------------------------------ |
-| `/admin/analytics`                            | `AGENTS.md`, `MODELO_DATOS.md` |
 | `/admin/establecimientos/[idEstablecimiento]` | `README.md`, links legacy      |
 | `/usuario/establecimientos`                   | Link en `/usuario` (sin ruta dedicada aún) |
 | `/usuario/direcciones`                        | ⚠️ No existe; CRUD vive en `/usuario`      |
@@ -248,7 +249,7 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | `updatePedidoEstado`                               | ✅         | Admin/repartidor Server Actions               |
 | `assignPedidoToRepartidor`                         | ✅         | Claim repartidor                              |
 | Cliente: get / update perfil                       | ❌         | —                                             |
-| Calificación: create / promedio por local          | ❌         | —                                             |
+| Calificación: create / promedio por local          | ✅         | `/usuario/pedidos/[idPedido]` + ranking Cassandra |
 | Hash de `cuenta_app.contrasenia`                   | ❌         | Texto plano (demo)                            |
 | Constraints de negocio (montos, checks por rol)    | ❌         | `docs/GAPS.md`                                |
 
@@ -262,7 +263,7 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | `getRestaurantCatalogProduct`                | ✅         | Detalle producto                 |
 | `getRestaurantReviews` / `createReview`      | ✅ queries | ❌ Sin pantalla                   |
 | `getUserActivity`                            | ✅ query   | ❌ Sin pantalla                   |
-| `getRestaurantProfile`                       | ✅         | `/admin/local`                   |
+| `getRestaurantProfile`                       | ✅         | `/admin/local`, `/restaurantes/[id]` |
 | `upsertRestaurantProfile`                    | ✅         | `/admin/local`                   |
 | `syncCatalogHeader`                          | ✅         | Sync nombre/tipo al editar local |
 | `addCatalogProduct` / `updateCatalogProduct` | ✅         | `/admin/productos/`*             |
@@ -291,12 +292,12 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 
 | Query                                                      | Estado | Usado en UI |
 | ---------------------------------------------------------- | ------ | ----------- |
-| `getPedidosPorCliente`                                     | ✅      | ❌           |
-| `getPedidosPorLocal` / `getPedidosPorLocalEstado`          | ✅      | ❌           |
-| `getPedidosPorRepartidor`                                  | ✅      | ❌           |
+| `getPedidosPorCliente`                                     | ✅      | ✅ `/usuario/pedidos` |
+| `getPedidosPorLocal` / `getPedidosPorLocalEstado`          | ✅      | ✅ `/admin`, `/admin/analytics` |
+| `getPedidosPorRepartidor`                                  | ✅      | ✅ `/repartidor/pedidos` |
 | `getCalificacionesLocal` / `getCalificacionesRepartidor`   | ✅      | ❌           |
-| `getMetricasDiariasLocal` / `getMetricasDiariasRepartidor` | ✅      | ❌           |
-| `getMetricasGlobalesDiarias` / `getRankingLocalesPorMes`   | ✅      | ❌           |
+| `getMetricasDiariasLocal` / `getMetricasDiariasRepartidor` | ✅      | ✅ `/admin`, `/admin/analytics` usan local |
+| `getMetricasGlobalesDiarias` / `getRankingLocalesPorMes`   | ✅      | ✅ `/admin/analytics` |
 
 
 ---
@@ -315,13 +316,13 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | 7     | `fecha_hora` automática en pedido                      | ✅      | Default en schema / insert                                    |
 | 8     | Flujo de estados + `cancelado`                         | ✅      | Server Actions con transiciones por rol                       |
 | 9     | Crear pedido (productos + dirección)                   | ✅      | Checkout con dirección elegida en `/carrito`                   |
-| 10    | Historial pedidos cliente (Cassandra)                  | ⚠️     | Real vía Postgres; Cassandra pendiente                        |
+| 10    | Historial pedidos cliente (Cassandra)                  | ✅      | `/usuario/pedidos` lee `pedidos_por_cliente`                  |
 | 11    | Repartidor: detalle pedido asignado                    | ✅      | Postgres scoped por `id_repartidor`                           |
 | 12    | Admin: ver pedidos y confirmar/rechazar                | ✅      | Lista/detalle real + cambio estado                            |
 | 13–15 | Promociones como entidad                               | ✅ N/A  | Eliminadas; `promocion_porcentaje` en producto                |
 | 16    | Asignar repartidor disponible                          | ⚠️     | Repartidor toma pedido desde pool Redis; no auto-asignación    |
 | 17    | Repartidor: en camino / entregado                      | ✅      | Server Action + Postgres + Redis status                       |
-| 18    | Consultar pedidos del repartidor                       | ⚠️     | Real vía Postgres; Cassandra pendiente                        |
+| 18    | Consultar pedidos del repartidor                       | ✅      | `/repartidor/pedidos` lee `pedidos_por_repartidor`            |
 | 19    | Admin: agregar productos al menú                       | ✅      | Mongo `addCatalogProduct`                                     |
 | 20    | Marcar producto no disponible                          | ✅      | `setCatalogProductAvailability` (soft)                        |
 | 21    | Editar producto (precio, promo, disponible)            | ✅      | `/admin/productos/[idProducto]`                               |
@@ -346,14 +347,14 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | ------------------------------------------- | ------ | -------------------------------------------- |
 | Passwords texto plano en `cuenta_app`       | ❌      | Alta                                         |
 | Constraints de negocio en PostgreSQL        | ❌      | Alta                                         |
-| Pantallas mock → queries scoped             | 🔄     | Alta (pedidos por rol ✅; dashboards pendiente) |
+| Pantallas mock → queries scoped             | ✅     | `/admin` migrado a Cassandra; mocks solo opt-in por env |
 | Detalles `[idPedido]` con autorización real | ✅      | Cerrado para admin/usuario/repartidor         |
 | Consumo MongoDB (perfiles, order_documents) | ❌      | Media                                        |
 | Redis frescura / TTL operacional            | ❌      | Media                                        |
-| Cassandra en analytics / historial          | ❌      | Media                                        |
+| Cassandra en analytics / historial          | ✅      | `/admin/analytics`, `/usuario/pedidos`, `/repartidor/pedidos` leen Cassandra; escrituras proyectadas desde Server Actions (ADR-025) |
 | Tests (mappers, seed, queries)              | ❌      | Media                                        |
 | Snapshots Drizzle post-`0000`               | ⚠️     | Baja                                         |
-| Sincronización multibase al crear pedido    | ❌      | Media (Fase 1.5)                             |
+| Sincronización multibase al crear pedido    | 🔄     | Cassandra ✅ vía proyecciones (ADR-025); Mongo pendiente |
 
 
 ---
@@ -368,6 +369,7 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 | Signin                    | Pantalla pública pendiente (`ADR-017`)          | Form sin Server Action; copy menciona Supabase Auth             |
 | Componentes de pedido     | `PedidoConDetalle` (`types/domain.ts`)          | Detalles/listados por rol usan Postgres |
 | Total vs fees en checkout | `pedido.total` transaccional                    | Total PG = solo ítems; envío/tarifa simulados en UI del carrito |
+| Perfil público del local  | `restaurant_profiles` aporta contenido flexible | `/restaurantes/[id]` muestra descripción, horarios, zonas y medios de pago desde Mongo; portada usa patrón visual si no hay imagen |
 | Dirección en checkout     | Cliente elige dirección                         | Selector en `/carrito`; validación server con `getDireccionEntregaById` |
 | Ruta `/usuario/direcciones` | Nav o ruta dedicada                           | CRUD integrado en `/usuario` (perfil)                           |
 
@@ -383,8 +385,8 @@ repartidor avanza → Postgres en_camino / entregado + Redis order:status
 5. [x] Direcciones: CRUD en `/usuario` + selector en checkout
 6. [ ] Fase 1.5: sync post-checkout (Mongo `order_documents`, Redis status, Cassandra evento)
 7. [x] Admin productos contra Mongo (CRUD) — ver ADR-022
-8. [ ] Rutas faltantes: `/usuario/establecimientos`, `/admin/analytics`
-9. [ ] Calificaciones + historial Cassandra en UI
+8. [ ] Rutas faltantes: `/usuario/establecimientos` (`/admin/analytics` ✅ inicial)
+9. [x] Calificaciones + historial Cassandra en UI
 10. [ ] Hash passwords, constraints SQL, tests básicos
 
 ---
@@ -455,6 +457,13 @@ Fotos de producto: campo `foto` (URL externa, típicamente CDN `images.rappi.com
 | 2026-06-08 | **Redis teoria e implementacion:** `docs/REDIS_MODELO_FISICO.md` cruza clave-valor, TTL, Set, Hash, atomicidad, `SET NX`, GEO y cache contra keys reales del proyecto                              |
 | 2026-06-08 | **Cruce teorico por motor:** Postgres, MongoDB y Cassandra documentan conceptos de cursada contra tablas, colecciones, keys, indices y patrones reales del proyecto                                  |
 | 2026-06-08 | **Redis Hash pedidos disponibles:** `/repartidor/pedidos` lista candidatos desde Hash snapshots (`HGETALL`) y evita una query Postgres por cada pedido disponible                                      |
+| 2026-06-08 | **Admin analytics Cassandra:** `/admin/analytics` consume métricas/ranking/pedidos históricos Cassandra y renderiza charts shadcn/Recharts                                                              |
+| 2026-06-10 | **Modo real por defecto:** `MOCK_DB=true` pasa a ser opt-in; `/admin` deja KPIs mock y usa Cassandra; `/admin/analytics` agrega selector temporal de mes                         |
+| 2026-06-10 | **Admin dashboard y calificaciones:** `/admin` quita accesos rápidos, refuerza gráficos y `projectCalificaciones` recalcula `ranking_locales_por_mes.promedio_calificacion`       |
+| 2026-06-10 | **Charts admin robustos:** `/admin/analytics` mantiene shadcn/Recharts con altura estable, empty states por datos útiles y filtro mensual para métricas/pedidos locales             |
+| 2026-06-10 | **Charts semanales `/admin`:** ventana continua de últimos 7 días terminando hoy; ranking del mes corriente; labels `día dd/mm`; paleta naranja y hover con contraste              |
+| 2026-06-10 | **KPI Calificación `/admin`:** lee solo `ranking_locales_por_mes` (proyección real); `projectCalificaciones` upsertea ranking; seed reducido a bootstrap sin pedidos/métricas |
+| 2026-06-10 | **Perfil público Mongo:** `/restaurantes/[id]` consume `restaurant_profiles` para descripción, horarios, zonas y medios de pago; hero usa patrón visual sin portada hardcodeada |
 
 
 ---

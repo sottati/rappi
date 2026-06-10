@@ -20,9 +20,10 @@ La app ya tiene:
   - Upstash Redis;
   - Cassandra/DataStax Astra.
 - Primeras pantallas consumiendo datos filtrados por sesion:
-  - `/admin/local`, `/admin/productos` (Mongo), `/admin/pedidos`;
-  - `/usuario`;
-  - `/repartidor/disponibilidad`.
+  - `/admin`, `/admin/analytics`, `/admin/local`, `/admin/productos` (Mongo),
+    `/admin/pedidos`;
+  - `/usuario`, `/usuario/pedidos`;
+  - `/repartidor/disponibilidad`, `/repartidor/pedidos`.
 
 ## Como levantar local
 
@@ -31,13 +32,14 @@ pnpm install
 pnpm dev
 ```
 
-La app corre en el puerto que indique Next.js. Para desarrollo sin clouds:
+La app corre en el puerto que indique Next.js. Por defecto intenta consumir clouds reales.
+Para desarrollo aislado sin clouds:
 
 ```env
 MOCK_DB=true
 ```
 
-Para consumir datos reales:
+Para consumir datos reales, no definir `MOCK_DB` o usar:
 
 ```env
 MOCK_DB=false
@@ -67,7 +69,7 @@ dato necesita cruzarse entre motores, se usan ids compartidos
 
 ```bash
 pnpm db:migrate
-MOCK_DB=false pnpm db:seed
+pnpm db:seed
 ```
 
 Antes de seedear Cassandra, las tablas deben existir. El DDL esta en:
@@ -78,6 +80,17 @@ docs/CASSANDRA_MODELO_FISICO.cql
 
 El seed es idempotente para el dataset demo: se puede volver a correr para
 reparar cuentas y recrear documentos/catalogos demo.
+
+## Notas de UI Cassandra
+
+- `/admin` usa charts shadcn/Recharts con paleta naranja. La serie temporal
+  muestra los ultimos 7 dias terminando hoy, con labels `día dd/mm`. La
+  calificacion del resumen usa el mes corriente.
+- Los datos de `/admin` salen de Cassandra: `metricas_diarias_local` y
+  `pedidos_por_local`. Si la metrica diaria no refleja un pedido reciente, la
+  pagina fusiona `pedidos_por_local` como fallback de lectura.
+- `/admin/analytics` filtra por `?mes=YYYY-MM` y muestra empty states cuando el
+  dataset no tiene valores utiles para graficar.
 
 ## Cuentas demo
 
@@ -137,7 +150,7 @@ pnpm lint
 Si se tocaron datos o seeds, correr tambien:
 
 ```bash
-MOCK_DB=false pnpm db:seed
+pnpm db:seed
 ```
 
 ## Riesgos conocidos
@@ -146,6 +159,6 @@ MOCK_DB=false pnpm db:seed
   Debe migrarse a hash antes de tratarlo como produccion.
 - Faltan constraints de negocio en PostgreSQL: rangos, montos positivos y
   checks por rol en `cuenta_app`.
-- Algunas rutas de detalle siguen usando mocks o integraciones parciales.
+- Algunas rutas publicas/secundarias siguen incompletas o con integraciones parciales.
 - MongoDB tiene documentos cargados, pero no todos tienen queries/pantallas que
   los consuman todavia.

@@ -178,16 +178,19 @@ Estado actual:
 | `/signin`                    | Implementada visualmente; registro real pendiente         |
 | `/restaurantes`              | Implementada con contenido publico/mock                   |
 | `/carrito`                   | Implementada con contenido publico/mock                   |
-| `/admin`                     | Implementada: resumen (mock KPIs)                         |
+| `/admin`                     | Implementada: resumen desde Cassandra; charts semanales con `metricas_diarias_local` + fallback `pedidos_por_local` |
 | `/admin/local`               | Implementada: CRUD datos operativos + perfil comercial    |
 | `/admin/establecimientos`    | Redirect a `/admin/local`                                 |
 | `/admin/productos`           | Implementada: catálogo Mongo scoped + CRUD                |
 | `/admin/productos/[idProducto]`, `/nuevo` | Implementadas: edición/alta producto      |
 | `/admin/pedidos`             | Implementada con query scoped por establecimiento         |
+| `/admin/analytics`           | Implementada con Cassandra: métricas por mes, ranking y pedidos históricos |
+| `/usuario/pedidos`           | Implementada con Cassandra: `pedidos_por_cliente` scoped |
+| `/repartidor/pedidos`        | Implementada con Redis para disponibles + Cassandra para asignados |
 | `/repartidor`                | Implementada: resumen                                     |
 | `/repartidor/disponibilidad` | Implementada con repartidor de sesion + Redis             |
 | `/usuario`                   | Implementada con pedidos scoped por cliente               |
-| Rutas de detalle/listados    | Varias siguen con mocks o integracion parcial             |
+| Rutas de detalle/listados    | Pedidos por rol migrados a queries reales; siguen parciales rutas secundarias/publicas |
 
 | Rol          | Alcance                                                                                     |
 | ------------ | ------------------------------------------------------------------------------------------- |
@@ -219,14 +222,14 @@ Cada funcion de acceso a datos:
 - La pagina Server Component decide si renderiza datos, `ErrorState`,
   `EmptyState` o `notFound()`.
 
-## Modo mock
+## Modo real y mocks opt-in
 
-Hasta conectar los servicios cloud, se puede usar `MOCK_DB=true`.
+La app usa servicios cloud reales por defecto. Para desarrollo aislado, se puede usar `MOCK_DB=true`.
 
 - Cada motor puede tener un `mock.ts` con datos tipados.
-- `queries.ts` revisa `MOCK_DB` antes de crear clientes reales.
+- `queries.ts` usa mocks solo cuando `MOCK_DB=true`.
 - La UI usa el mismo contrato que usara con datos reales.
-- Al usar clouds reales, se cambia `MOCK_DB=false`.
+- Para entrega/demo real, usar `MOCK_DB=false` o no definir la variable.
 
 ## Dataset demo multibase
 
@@ -234,19 +237,32 @@ El seed canónico vive en `scripts/seed-test-users.ts`.
 
 ```bash
 pnpm db:migrate
-MOCK_DB=false pnpm db:seed
+pnpm db:seed
 ```
 
 Primero escribe PostgreSQL, resuelve los ids reales y luego proyecta esos ids a
 MongoDB, Redis y Cassandra. Esta regla evita que cada motor tenga datos
 incompatibles.
 
+### Lecturas Cassandra en UI
+
+- `/admin` usa `metricas_diarias_local` para KPIs y charts. Si la métrica diaria
+  todavía no refleja un pedido reciente, fusiona `pedidos_por_local` como
+  fallback de lectura para que el gráfico semanal muestre actividad real.
+- Los charts de `/admin` siempre muestran una ventana continua de los últimos
+  7 días terminando hoy. Los días sin actividad se rellenan con cero. El KPI de
+  calificación usa `ranking_locales_por_mes` del mes corriente.
+- `/admin/analytics` usa el parámetro `?mes=YYYY-MM` para filtrar métricas
+  globales/locales, ranking mensual y pedidos históricos.
+- `/usuario/pedidos` y `/repartidor/pedidos` leen historiales desde tablas
+  Cassandra modeladas por query.
+
 ## Gaps conocidos
 
 Los gaps se documentan en `docs/GAPS.md`. Resumen:
 
 - completar pantallas navegadas desde layouts;
-- migrar rutas de detalle/listados que todavia usan mocks;
+- completar rutas secundarias/publicas pendientes;
 - hashear passwords de `cuenta_app`;
 - agregar constraints de negocio en PostgreSQL;
 - decidir que lecturas Cassandra reemplazan o complementan lecturas PostgreSQL;

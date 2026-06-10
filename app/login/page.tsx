@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <AuthShell
       title="Iniciar sesión"
-      description="Accedé con email y contraseña. Con MOCK_DB=true las cuentas viven en memoria; con Postgres real, corré pnpm db:seed."
+      description="Accedé con email y contraseña. Para usar las cuentas demo contra Postgres real, corré pnpm db:seed."
       footer={
         <>
           <Link href="/" className="font-medium text-primary hover:underline">

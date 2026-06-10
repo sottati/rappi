@@ -76,12 +76,12 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 
 ---
 
-## ADR-009: Mocks por motor hasta conectar DB cloud
+## ADR-009: Mocks por motor como fixture opt-in
 
 - **Estado:** Aceptada
-- **Contexto:** La UI necesita avanzar antes de tener credenciales y esquemas finales de Supabase, Redis, MongoDB y DataStax.
-- **Decision:** Cada motor puede tener `mock.ts` con datos tipados. Las funciones en `queries.ts` devuelven mocks cuando `MOCK_DB=true`.
-- **Consecuencias:** +Permite desarrollar pantallas sin credenciales, +mantiene el contrato real de queries, +facilita demos tempranas. Como contra, hay que mantener los mocks parecidos al esquema real para no generar una falsa sensacion de integracion terminada.
+- **Contexto:** La entrega debe usar bases reales. Los mocks siguen sirviendo como fixture local puntual, pero no deben ser el comportamiento por defecto.
+- **Decision:** Cada motor puede conservar `mock.ts` con datos tipados. Las funciones en `queries.ts` solo devuelven mocks cuando `MOCK_DB=true`; sin esa variable o con `MOCK_DB=false`, usan clientes reales.
+- **Consecuencias:** +La demo falla rapido si faltan credenciales, +evita pantallas aparentemente integradas con datos falsos, +mantiene fixtures para desarrollo aislado. Como contra, levantar el proyecto sin servicios cloud requiere activar mocks explicitamente.
 
 ---
 
@@ -217,3 +217,12 @@ Cada entrada sigue formato ligero de ADR (Architecture Decision Record).
 - **Contexto:** El flujo operativo necesita que repartidores vean rapido pedidos que el comercio ya acepto y que solo un repartidor pueda tomar cada pedido. PostgreSQL sigue siendo la fuente de verdad del pedido, pero no conviene usarlo como mecanismo de carrera/descubrimiento rapido.
 - **Decision:** El comercio confirma/rechaza desde Postgres. Cuando un pedido pasa a `confirmado` o `preparando`, se publica su id en Redis (`delivery:available_orders`). Cuando un repartidor lo toma, primero reclama `order:claim:<idPedido>` con `SET NX`; si gana, se asigna `pedido.id_repartidor` en Postgres y se remueve del pool Redis. Los cambios de estado tambien actualizan `order:status:<idPedido>`.
 - **Consecuencias:** +Redis aporta baja latencia y claim atomico, +Postgres mantiene consistencia e historial operativo, +el flujo queda explicable para la demo. Como contra, si Redis pierde el pool se puede reconstruir desde Postgres con pedidos `confirmado/preparando` sin repartidor.
+
+---
+
+## ADR-025: Proyecciones a Cassandra post-commit, best-effort, con read-modify-write
+
+- **Estado:** Aceptada
+- **Contexto:** Las tablas Cassandra (ADR-013) se poblaban solo desde el seed. Los flujos reales (crear pedido, confirmar/cancelar, claim, entregar, calificar) debian alimentar el keyspace. La app usa la Data API de Astra (`@datastax/astra-db-ts`), que no soporta columnas `counter` ni incrementos atomicos (`$inc`); usar counters CQL exigiria un segundo cliente (`cassandra-driver` + secure bundle) y reescribir las tablas de metricas (counter solo admite bigint).
+- **Decision:** Cada Server Action proyecta a Cassandra despues del commit en Postgres via `lib/db/cassandra/projections.ts`. Las proyecciones son best-effort: si fallan se loguea y la accion devuelve exito igual (Postgres es la fuente de verdad; Cassandra es vista de lectura con consistencia eventual). Las metricas se actualizan con read-modify-write (`findOne` + `insertOne` upsert, mismo primary key sobreescribe). El ranking mensual, con `total_pedidos` como clustering key, se actualiza con delete + insert. Al calificar, se recalcula el promedio mensual del local desde `calificaciones_local` y se reescribe `ranking_locales_por_mes.promedio_calificacion`. Las transiciones de estado en `pedidos_por_local_estado` (estado en la partition key) hacen move de particion: delete en la particion vieja + insert en la nueva. Con `MOCK_DB=true` las proyecciones son no-op. El bucket de `metricas_globales_diarias` es el mes (`YYYY-MM`) y `/admin/analytics` lo selecciona por query param `?mes=YYYY-MM`. En `/admin`, los charts semanales leen `metricas_diarias_local` y fusionan `pedidos_por_local` como fallback cuando la metrica agregada todavia no refleja pedidos recientes; la serie se normaliza a los ultimos 7 dias terminando hoy, y el KPI de calificacion usa el ranking del mes corriente.
+- **Consecuencias:** +El keyspace se alimenta desde transacciones reales de la app, +un solo cliente Cassandra, +patron defendible (proyeccion CQRS-like). Como contras aceptados: el read-modify-write tiene condiciones de carrera bajo concurrencia (en produccion irian counters CQL: `UPDATE ... SET x = x + 1`, vistos en la teoria Clase 5); `locales_activos`/`repartidores_activos` no se mantienen en vivo (quedan del seed o en su valor inicial).

@@ -100,19 +100,20 @@ Las paginas de detalle usan ids:
 
 Estado actual: estan implementadas las rutas publicas principales
 (`/restaurantes`, carrito, login/signin) y las bases por rol. Las rutas que ya
-consumen datos reales/scoped incluyen `/admin/productos`, `/admin/pedidos`,
-`/usuario` y `/repartidor/disponibilidad`. Algunas rutas de detalle y listados
-por rol siguen usando mocks o integraciones parciales.
+consumen datos reales/scoped incluyen `/admin`, `/admin/analytics`,
+`/admin/productos`, `/admin/pedidos`, `/usuario`, `/usuario/pedidos`,
+`/repartidor/disponibilidad` y `/repartidor/pedidos`.
 
-## Modo mock
+## Modo real y mocks opt-in
 
-Mientras no esten conectadas las DB reales, las queries usan mocks por defecto.
+La app intenta usar credenciales reales por defecto. Para desarrollo aislado sin
+clouds se puede activar fixtures locales:
 
 ```env
 MOCK_DB=true
 ```
 
-Para usar credenciales reales:
+Para usar credenciales reales, no definir `MOCK_DB` o usar:
 
 ```env
 MOCK_DB=false
@@ -132,11 +133,25 @@ Con credenciales cloud en `.env.local`:
 
 ```bash
 pnpm db:migrate
-MOCK_DB=false pnpm db:seed
+pnpm db:seed
 ```
 
 El seed carga primero PostgreSQL y despues proyecta datos a MongoDB, Redis y
 Cassandra. Si falta una env de algun motor no relacional, ese motor se omite.
+
+## Analytics y Cassandra
+
+- `/admin` muestra KPIs y charts semanales desde Cassandra. Lee
+  `metricas_diarias_local` y fusiona `pedidos_por_local` como fallback si una
+  metrica diaria no refleja pedidos recientes.
+- Los charts de `/admin` usan shadcn/Recharts, paleta naranja, hover con
+  contraste y una ventana continua de los ultimos 7 dias terminando hoy. El KPI
+  de calificacion usa el mes corriente.
+- `/admin/analytics` filtra por `?mes=YYYY-MM` y muestra metricas
+  globales/locales, ranking mensual y pedidos historicos.
+- `/usuario/pedidos` lee `pedidos_por_cliente`.
+- `/repartidor/pedidos` combina Redis para pedidos disponibles y Cassandra para
+  pedidos asignados/historicos.
 
 Cuentas demo:
 

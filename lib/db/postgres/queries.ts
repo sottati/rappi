@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm"
 import { EstadoPedido } from "@/types/domain"
 import type {
+  Calificacion,
+  Cliente,
   CuentaApp,
   DetallePedido,
   DireccionEntrega,
@@ -8,11 +10,14 @@ import type {
   PedidoConDetalle,
   Producto,
   Repartidor,
+  TipoCalificacion,
 } from "@/types/domain"
 import type { QueryResult } from "../helpers"
 import { fail, ok, shouldUseMockData } from "../helpers"
 import { getDrizzleDb } from "./drizzle"
 import {
+  mockCalificaciones,
+  mockClientes,
   mockCuentasApp,
   mockDireccionesEntrega,
   mockEstablecimientos,
@@ -21,6 +26,8 @@ import {
   mockRepartidores,
 } from "./mock"
 import {
+  calificacion,
+  cliente,
   cuentaApp,
   detallePedido,
   direccionEntrega,
@@ -30,6 +37,8 @@ import {
   repartidor,
 } from "./schema"
 import type {
+  CalificacionSelect,
+  ClienteSelect,
   CuentaAppSelect,
   DetallePedidoSelect,
   DireccionEntregaSelect,
@@ -47,6 +56,15 @@ function mapDetalle(row: DetallePedidoSelect): DetallePedido {
     nombreProducto: row.nombreProducto,
     cantidad: row.cantidad,
     precioUnitario: row.precioUnitario,
+  }
+}
+
+function mapCalificacion(row: CalificacionSelect): Calificacion {
+  return {
+    idCalificacion: row.idCalificacion,
+    idPedido: row.idPedido,
+    tipo: row.tipo as TipoCalificacion,
+    puntaje: row.puntaje,
   }
 }
 
@@ -99,6 +117,16 @@ function mapRepartidor(row: RepartidorSelect): Repartidor {
     telefono: row.telefono,
     disponible: row.disponible,
     coordenadaActual: row.coordenadaActual,
+  }
+}
+
+function mapCliente(row: ClienteSelect): Cliente {
+  return {
+    idCliente: row.idCliente,
+    nombre: row.nombre,
+    apellido: row.apellido,
+    email: row.email,
+    telefono: row.telefono,
   }
 }
 
@@ -261,6 +289,57 @@ export async function getPedidoById(
     return ok(row ? mapPedido(row) : null)
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Failed to fetch pedido")
+  }
+}
+
+export async function createCalificacion(input: {
+  idPedido: number
+  tipo: TipoCalificacion
+  puntaje: number
+}): Promise<QueryResult<Calificacion>> {
+  if (shouldUseMockData()) {
+    const nueva: Calificacion = {
+      idCalificacion: mockCalificaciones.length + 1,
+      idPedido: input.idPedido,
+      tipo: input.tipo,
+      puntaje: input.puntaje,
+    }
+    mockCalificaciones.push(nueva)
+    return ok(nueva)
+  }
+
+  try {
+    const [row] = await getDrizzleDb()
+      .insert(calificacion)
+      .values({
+        idPedido: input.idPedido,
+        tipo: input.tipo,
+        puntaje: input.puntaje,
+      })
+      .returning()
+
+    return ok(mapCalificacion(row))
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to create calificacion")
+  }
+}
+
+export async function getCalificacionesByPedido(
+  idPedido: number
+): Promise<QueryResult<Calificacion[]>> {
+  if (shouldUseMockData()) {
+    return ok(mockCalificaciones.filter((item) => item.idPedido === idPedido))
+  }
+
+  try {
+    const rows = await getDrizzleDb().query.calificacion.findMany({
+      where: eq(calificacion.idPedido, idPedido),
+    })
+    return ok(rows.map(mapCalificacion))
+  } catch (e) {
+    return fail(
+      e instanceof Error ? e.message : "Failed to fetch calificaciones"
+    )
   }
 }
 
@@ -456,6 +535,23 @@ export async function getEstablecimientoById(
     return fail(
       e instanceof Error ? e.message : "Failed to fetch establecimiento"
     )
+  }
+}
+
+export async function getClienteById(
+  idCliente: number
+): Promise<QueryResult<Cliente | null>> {
+  if (shouldUseMockData()) {
+    return ok(mockClientes.find((item) => item.idCliente === idCliente) ?? null)
+  }
+
+  try {
+    const row = await getDrizzleDb().query.cliente.findFirst({
+      where: eq(cliente.idCliente, idCliente),
+    })
+    return ok(row ? mapCliente(row) : null)
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to fetch cliente")
   }
 }
 

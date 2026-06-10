@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { getAdminScope } from "@/lib/admin/scope"
-import { postgres, redis } from "@/lib/db"
+import { cassandra, postgres, redis } from "@/lib/db"
 import type { AvailableOrderSnapshot } from "@/lib/db/redis/types"
 import { getSession } from "@/lib/auth/session"
 import { EstadoPedido, type PedidoConDetalle } from "@/types/domain"
@@ -134,7 +134,10 @@ export async function updateAdminPedidoEstadoAction(
   }
 
   await syncPedidoStatus(updated.data, estado)
-  // Cassandra futuro: proyectar order_confirmed/order_rejected/order_preparing.
+  await cassandra.projections.projectPedidoEstadoChanged(
+    updated.data,
+    pedido.data.estado
+  )
 
   revalidatePath("/admin/pedidos")
   revalidatePath(`/admin/pedidos/${idPedido}`)
@@ -172,7 +175,7 @@ export async function claimPedidoAction(
   }
 
   await redis.queries.removeAvailableOrder(String(idPedido))
-  // Cassandra futuro: proyectar courier_assigned en pedidos_por_repartidor.
+  await cassandra.projections.projectPedidoClaimed(assigned.data)
 
   revalidatePath("/repartidor/pedidos")
   revalidatePath(`/repartidor/pedidos/${idPedido}`)
@@ -214,7 +217,10 @@ export async function updateRepartidorPedidoEstadoAction(
   }
 
   await syncPedidoStatus(updated.data, estado)
-  // Cassandra futuro: proyectar order_in_transit/order_delivered.
+  await cassandra.projections.projectPedidoEstadoChanged(
+    updated.data,
+    pedido.data.estado
+  )
 
   revalidatePath("/repartidor/pedidos")
   revalidatePath(`/repartidor/pedidos/${idPedido}`)
